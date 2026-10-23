@@ -226,7 +226,7 @@ export default function Home() {
   }, [routeData]);
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-dark-900">
+    <main className="relative w-screen h-screen overflow-hidden bg-zinc-950 font-sans">
       {/* 1. Full-screen Interactive MapLibre GL Map */}
       <MapView
         stations={filteredStations}
@@ -244,7 +244,7 @@ export default function Home() {
         focusCoordinate={focusCoordinate}
       />
 
-      {/* 2. Phase 3: Left Route & Battery Planner Sidebar */}
+      {/* 2. Left Route & Battery Planner Sidebar */}
       <RoutePlannerPanel
         origin={origin}
         setOrigin={setOrigin}
@@ -269,7 +269,7 @@ export default function Home() {
       />
 
       {/* 3. Top Navigation & Floating Filter Bar */}
-      <div className="absolute top-4 right-4 left-4 md:left-[470px] md:right-4 z-20 transition-all">
+      <div className="absolute top-4 right-4 left-4 md:left-[448px] md:right-4 z-20 transition-all">
         <FilterBar
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}

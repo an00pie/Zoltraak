@@ -5,6 +5,7 @@
 /* MapLibre styling */
 @import "maplibre-gl/dist/maplibre-gl.css";
 
+
 html,
 body {
   height: 100%;
@@ -12,55 +13,59 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background-color: #0b0f17;
-  color: #f3f4f6;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "Helvetica Neue", Arial, sans-serif;
+  background-color: #09090b;
+  color: #f4f4f5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbars */
+/* Minimal subtle scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #111827;
+  background: #09090b;
 }
 ::-webkit-scrollbar-thumb {
-  background: #374151;
-  border-radius: 3px;
+  background: #27272a;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4b5563;
+  background: #3f3f46;
 }
 
-/* Custom Map Marker Pulsing and Tooltips */
+/* Minimalist MapLibre Popups */
 .maplibregl-popup-content {
-  background: #111827 !important;
-  color: #f3f4f6 !important;
-  border: 1px solid #374151 !important;
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #27272a !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
-  padding: 0.75rem 1rem !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4) !important;
+  padding: 0.75rem 0.85rem !important;
 }
 
 .maplibregl-popup-anchor-top .maplibregl-popup-tip {
-  border-bottom-color: #111827 !important;
+  border-bottom-color: #18181b !important;
 }
 .maplibregl-popup-anchor-bottom .maplibregl-popup-tip {
-  border-top-color: #111827 !important;
+  border-top-color: #18181b !important;
 }
 .maplibregl-popup-anchor-left .maplibregl-popup-tip {
-  border-right-color: #111827 !important;
+  border-right-color: #18181b !important;
 }
 .maplibregl-popup-anchor-right .maplibregl-popup-tip {
-  border-left-color: #111827 !important;
+  border-left-color: #18181b !important;
 }
 .maplibregl-popup-close-button {
-  color: #9ca3af !important;
+  color: #71717a !important;
   padding: 4px 8px !important;
-  font-size: 16px !important;
+  font-size: 15px !important;
+  top: 6px !important;
+  right: 6px !important;
 }
 .maplibregl-popup-close-button:hover {
-  color: #ffffff !important;
+  color: #f4f4f5 !important;
   background: transparent !important;
 }

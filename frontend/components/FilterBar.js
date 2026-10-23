@@ -83,26 +83,25 @@ export default function FilterBar({
   };
 
   return (
-    <div className="bg-dark-800/90 backdrop-blur-md border border-gray-700/60 rounded-xl p-3 shadow-2xl space-y-3">
+    <div className="bg-zinc-950/90 border border-zinc-800 rounded-xl p-2.5 shadow-lg space-y-2.5">
       {/* Top row: Brand & Primary Search */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+      <div className="flex flex-col md:flex-row items-stretch md:items-center gap-2.5">
         {/* Brand pill */}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-brand-500/10 border border-brand-500/30 rounded-lg text-brand-400 font-semibold text-sm shrink-0">
-          <Zap className="w-4 h-4 text-brand-400 fill-brand-400" />
-          <span>Zoltraak</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-300">Phase 2</span>
+        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-100 font-medium text-xs shrink-0">
+          <Zap className="w-3.5 h-3.5 text-blue-500 fill-blue-500" />
+          <span className="font-semibold tracking-tight">Zoltraak</span>
         </div>
 
         {/* Search input with OpenStreetMap Autocomplete */}
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onFocus={() => placeSuggestions.length > 0 && setShowDropdown(true)}
-            placeholder="Search city, station, or address (OpenStreetMap Nominatim)..."
-            className="w-full pl-9 pr-8 py-2 bg-dark-900 border border-gray-700 rounded-lg text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:border-brand-500 transition-colors"
+            placeholder="Search station, city, or address..."
+            className="w-full pl-8 pr-7 py-1.5 bg-zinc-900 border border-zinc-800 rounded-lg text-xs text-zinc-100 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
           />
           {searchQuery && (
             <button
@@ -110,7 +109,7 @@ export default function FilterBar({
                 setSearchQuery("");
                 setShowDropdown(false);
               }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -118,18 +117,18 @@ export default function FilterBar({
 
           {/* OpenStreetMap Place Suggestions Dropdown */}
           {showDropdown && placeSuggestions.length > 0 && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-dark-900/95 backdrop-blur-xl border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-xs">
-              <div className="px-3 py-1.5 bg-dark-800/80 text-[10px] font-semibold text-gray-400 border-b border-gray-800 flex items-center justify-between">
-                <span>OpenStreetMap Places</span>
-                <span className="font-mono text-brand-400">Click to Fly</span>
+            <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden text-xs">
+              <div className="px-3 py-1.5 bg-zinc-950/80 text-[10px] font-semibold text-zinc-400 border-b border-zinc-800 flex items-center justify-between">
+                <span>Places</span>
+                <span className="font-mono text-zinc-500">Fly to Location</span>
               </div>
               {placeSuggestions.map((place, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleSelectPlace(place)}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-800/80 flex items-center gap-2.5 text-gray-200 border-b border-gray-800/40 last:border-0 transition-colors"
+                  className="w-full px-3 py-2 text-left hover:bg-zinc-800/80 flex items-center gap-2.5 text-zinc-200 border-b border-zinc-800/50 last:border-0 transition-colors"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                   <span className="truncate">{place.display_name}</span>
                 </button>
               ))}
@@ -140,16 +139,16 @@ export default function FilterBar({
         {/* H3 Overlay Toggle */}
         <button
           onClick={() => setShowH3Overlay(!showH3Overlay)}
-          className={`flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-all shrink-0 ${
+          className={`flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
             showH3Overlay
-              ? "bg-brand-500/20 border border-brand-400 text-brand-300 shadow-sm shadow-brand-500/20"
-              : "bg-dark-900 border border-gray-700 text-gray-400 hover:text-gray-200"
+              ? "bg-zinc-800 border border-zinc-700 text-zinc-100"
+              : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200"
           }`}
           title="Toggle Uber H3 Hexagon Grid"
         >
-          <Layers className={`w-4 h-4 ${showH3Overlay ? "text-brand-400" : "text-gray-400"}`} />
+          <Layers className="w-3.5 h-3.5" />
           <span>H3 Grid</span>
-          <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${showH3Overlay ? "bg-brand-500/30 text-brand-200" : "bg-gray-800 text-gray-400"}`}>
+          <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${showH3Overlay ? "bg-zinc-700 text-zinc-200" : "bg-zinc-800 text-zinc-500"}`}>
             {showH3Overlay ? "ON" : "OFF"}
           </span>
         </button>
@@ -158,25 +157,25 @@ export default function FilterBar({
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="flex items-center justify-center p-2 rounded-lg bg-dark-900 border border-gray-700 text-gray-400 hover:text-brand-400 hover:border-gray-600 transition-colors disabled:opacity-50"
-          title="Reload stations from database"
+          className="flex items-center justify-center p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700 transition-colors disabled:opacity-50"
+          title="Reload stations"
         >
-          <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-brand-400" : ""}`} />
+          <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin text-blue-400" : ""}`} />
         </button>
       </div>
 
       {/* Bottom row: Dropdown filters */}
-      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-gray-700/50 text-xs">
-        <div className="flex items-center gap-1.5 text-gray-400 font-medium pl-1">
-          <Filter className="w-3.5 h-3.5" />
-          <span>Filters:</span>
+      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-zinc-800/80 text-xs">
+        <div className="flex items-center gap-1 text-zinc-500 font-medium pl-0.5 text-[11px]">
+          <Filter className="w-3 h-3" />
+          <span>Filter:</span>
         </div>
 
         {/* Operator Select */}
         <select
           value={selectedOperator}
           onChange={(e) => setSelectedOperator(e.target.value)}
-          className="bg-dark-900 border border-gray-700 rounded-md px-2.5 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-brand-500 transition-colors"
+          className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-zinc-600 transition-colors"
         >
           <option value="">All Operators</option>
           {operators.map((op) => (
@@ -190,7 +189,7 @@ export default function FilterBar({
         <select
           value={selectedConnector}
           onChange={(e) => setSelectedConnector(e.target.value)}
-          className="bg-dark-900 border border-gray-700 rounded-md px-2.5 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-brand-500 transition-colors"
+          className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-zinc-600 transition-colors"
         >
           <option value="">All Plugs / Connectors</option>
           {connectorTypes.map((ct) => (
@@ -204,7 +203,7 @@ export default function FilterBar({
         <select
           value={minPower}
           onChange={(e) => setMinPower(Number(e.target.value))}
-          className="bg-dark-900 border border-gray-700 rounded-md px-2.5 py-1.5 text-gray-200 text-xs focus:outline-none focus:border-brand-500 transition-colors"
+          className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-zinc-200 text-xs focus:outline-none focus:border-zinc-600 transition-colors"
         >
           {powerBrackets.map((pb) => (
             <option key={pb.min_kw} value={pb.min_kw}>
@@ -217,17 +216,16 @@ export default function FilterBar({
         {hasActiveFilters && (
           <button
             onClick={resetFilters}
-            className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 px-2 py-1 bg-rose-500/10 border border-rose-500/30 rounded-md transition-colors"
+            className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 px-2 py-0.5 bg-rose-950/40 border border-rose-900/60 rounded-md transition-colors"
           >
             <X className="w-3 h-3" />
             <span>Reset</span>
           </button>
         )}
 
-        {/* Results badge */}
-        <div className="ml-auto text-xs text-gray-400 flex items-center gap-1.5">
-          <span className="inline-block w-2 h-2 rounded-full bg-brand-400 animate-pulse"></span>
-          <span>Showing <strong className="text-gray-100">{filteredCount}</strong> of <strong className="text-gray-300">{totalStations}</strong> stations</span>
+        {/* Results count */}
+        <div className="ml-auto text-[11px] text-zinc-500 font-mono flex items-center gap-1.5">
+          <span>{filteredCount} / {totalStations} stations</span>
         </div>
       </div>
     </div>

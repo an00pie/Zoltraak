@@ -152,26 +152,23 @@ export default function LocationAutocomplete({
   };
 
   const indicatorDotClass =
-    accentColor === "emerald" ? "bg-emerald-400" : "bg-rose-400";
-  const focusBorderClass =
-    accentColor === "emerald"
-      ? "focus-within:border-emerald-500"
-      : "focus-within:border-rose-500";
+    accentColor === "emerald" ? "bg-emerald-500" : "bg-rose-500";
+  const focusBorderClass = "focus-within:border-zinc-500";
 
   return (
     <div ref={containerRef} className="space-y-1 relative">
       {/* Label and GPS action */}
-      <div className="flex items-center justify-between text-[11px] font-semibold text-gray-400">
+      <div className="flex items-center justify-between text-[11px] font-medium text-zinc-400">
         <label className="flex items-center gap-1.5">
           <span className={`w-2 h-2 rounded-full ${indicatorDotClass}`}></span>
-          <span>{label}</span>
+          <span className="text-zinc-300 font-medium">{label}</span>
         </label>
         {enableGps && (
           <button
             type="button"
             onClick={handleGetLocation}
             disabled={isLocating}
-            className="flex items-center gap-1 text-[10px] text-brand-400 hover:text-brand-300 font-medium transition-colors"
+            className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-300 font-medium transition-colors"
           >
             {isLocating ? (
               <Loader2 className="w-3 h-3 animate-spin" />
@@ -185,27 +182,27 @@ export default function LocationAutocomplete({
 
       {/* Input container */}
       <div
-        className={`relative flex items-center bg-dark-800 border border-gray-700 rounded-lg overflow-hidden transition-all ${focusBorderClass}`}
+        className={`relative flex items-center bg-zinc-900/90 border border-zinc-800 rounded-lg overflow-hidden transition-colors ${focusBorderClass}`}
       >
-        <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 pointer-events-none" />
+        <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-2.5 pointer-events-none" />
         <input
           type="text"
           value={inputText}
           onChange={handleInputChange}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full bg-transparent pl-8 pr-7 py-2 text-gray-100 text-xs placeholder-gray-400 focus:outline-none font-medium"
+          className="w-full bg-transparent pl-8 pr-7 py-2 text-zinc-100 text-xs placeholder-zinc-500 focus:outline-none font-normal"
         />
 
         {/* Clear or loading indicator */}
         <div className="absolute right-2 flex items-center">
           {isSearching ? (
-            <Loader2 className="w-3.5 h-3.5 text-brand-400 animate-spin" />
+            <Loader2 className="w-3.5 h-3.5 text-blue-400 animate-spin" />
           ) : inputText ? (
             <button
               type="button"
               onClick={handleClear}
-              className="text-gray-400 hover:text-gray-200 p-0.5"
+              className="text-zinc-500 hover:text-zinc-300 p-0.5"
             >
               <X className="w-3.5 h-3.5" />
             </button>
@@ -215,33 +212,33 @@ export default function LocationAutocomplete({
 
       {/* Floating Suggestions & Preset Dropdown */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 bg-dark-900/98 backdrop-blur-2xl border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-xs max-h-80 overflow-y-auto">
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden text-xs max-h-80 overflow-y-auto">
           {/* Matched Geocoded Locations */}
           {suggestions.length > 0 && (
             <div>
-              <div className="px-3 py-1.5 bg-dark-800/90 text-[10px] font-semibold text-gray-400 border-b border-gray-800 flex items-center justify-between sticky top-0 backdrop-blur z-10">
-                <span>Matched Places (OSM & Corridors)</span>
-                <span className="font-mono text-brand-400 text-[10px]">Instant Select</span>
+              <div className="px-3 py-1.5 bg-zinc-950/80 text-[10px] font-semibold text-zinc-400 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-10">
+                <span>Matched Places</span>
+                <span className="font-mono text-zinc-500 text-[10px]">Select</span>
               </div>
               {suggestions.map((place, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleSelectPlace(place)}
-                  className="w-full px-3 py-2 text-left hover:bg-gray-800/90 flex items-center gap-2.5 text-gray-200 border-b border-gray-800/40 last:border-0 transition-colors"
+                  className="w-full px-3 py-2 text-left hover:bg-zinc-800/80 flex items-center gap-2.5 text-zinc-200 border-b border-zinc-800/50 last:border-0 transition-colors"
                 >
-                  <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                  <MapPin className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                   <div className="truncate flex-1">
-                    <p className="font-bold text-gray-100 text-xs truncate">
+                    <p className="font-medium text-zinc-100 text-xs truncate">
                       {place.name || place.display_name.split(",")[0]}
                     </p>
-                    <p className="text-[10px] text-gray-400 truncate">
+                    <p className="text-[10px] text-zinc-400 truncate">
                       {place.display_name}
                     </p>
                   </div>
                   {place.source === "local_corridor" && (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[9px] font-mono shrink-0">
-                      Corridor Town
+                    <span className="px-1.5 py-0.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 text-[9px] font-mono shrink-0">
+                      Corridor
                     </span>
                   )}
                 </button>
@@ -251,10 +248,10 @@ export default function LocationAutocomplete({
 
           {/* Quick Preset Corridor Cities & Local Highway Towns */}
           <div>
-            <div className="px-3 py-1.5 bg-dark-800/90 text-[10px] font-semibold text-gray-400 border-b border-gray-800 flex items-center justify-between sticky top-0 backdrop-blur z-10">
-              <span>{inputText ? "Matching Highway Towns" : "Popular Highway Corridors"}</span>
-              <span className="text-gray-500 text-[10px] font-mono">
-                {filteredPresets.length} Towns
+            <div className="px-3 py-1.5 bg-zinc-950/80 text-[10px] font-semibold text-zinc-400 border-b border-zinc-800 flex items-center justify-between sticky top-0 z-10">
+              <span>{inputText ? "Matching Highway Towns" : "Corridor Towns"}</span>
+              <span className="text-zinc-500 text-[10px] font-mono">
+                {filteredPresets.length}
               </span>
             </div>
             {filteredPresets.map((city, idx) => (
@@ -262,23 +259,23 @@ export default function LocationAutocomplete({
                 key={idx}
                 type="button"
                 onClick={() => handleSelectPlace(city)}
-                className="w-full px-3 py-1.5 text-left hover:bg-gray-800/90 flex items-center justify-between text-gray-200 border-b border-gray-800/40 last:border-0 transition-colors"
+                className="w-full px-3 py-1.5 text-left hover:bg-zinc-800/80 flex items-center justify-between text-zinc-200 border-b border-zinc-800/50 last:border-0 transition-colors"
               >
                 <div className="flex items-center gap-2">
-                  <Compass className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  <span className="font-medium text-xs text-gray-200">
+                  <Compass className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                  <span className="font-normal text-xs text-zinc-200">
                     {city.name}
                   </span>
                 </div>
-                <span className="text-[10px] text-gray-400 font-mono">
+                <span className="text-[10px] text-zinc-500 font-mono">
                   {city.state}
                 </span>
               </button>
             ))}
 
             {filteredPresets.length === 0 && suggestions.length === 0 && (
-              <div className="px-4 py-3 text-center text-gray-400 text-xs">
-                No matching towns found. Try searching full address or landmark.
+              <div className="px-4 py-3 text-center text-zinc-500 text-xs">
+                No matching towns found. Try searching full address.
               </div>
             )}
           </div>
