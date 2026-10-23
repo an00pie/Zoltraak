@@ -13,6 +13,7 @@ import {
   ChevronUp,
   CornerDownRight,
   Zap,
+  Home,
 } from "lucide-react";
 
 export const MAP_STYLES = [
@@ -80,6 +81,9 @@ export default function MapView({
   onViewportChange = null,
   h3Resolution = null,
   showCenterReticle = true,
+  communityChargers = [],
+  showCommunityChargers = true,
+  setShowCommunityChargers = null,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -243,6 +247,81 @@ export default function MapView({
               Add Stop
             </button>
           ` : ""}
+        </div>
+      </div>
+    `;
+  };
+
+  // Generate Community Home Charger Popup HTML (Distinct Violet Theme)
+  const getCommunityChargerPopupHtml = (st) => {
+    const isAvail = st.availability_status === "available";
+    const statusColor = isAvail ? "#10b981" : "#d97706";
+    const statusBg = isAvail ? "rgba(16, 185, 129, 0.15)" : "rgba(217, 119, 6, 0.15)";
+    const statusText = isAvail ? "Available Now" : (st.availability_status || "In Use");
+    const price = typeof st.price_per_kwh === "number" ? st.price_per_kwh.toFixed(2) : "11.50";
+
+    return `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #f4f4f5; min-width: 270px; max-width: 320px; padding: 2px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; border-bottom: 1px solid #27272a; padding-bottom: 6px; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4);">
+              🏠 COMMUNITY HOST
+            </span>
+            <span style="font-size: 11px; color: #fbbf24; font-weight: 600;">★ ${st.trust_score || "5.0"}</span>
+          </div>
+          <span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; background: ${statusBg}; color: ${statusColor};">
+            ${statusText}
+          </span>
+        </div>
+
+        <div>
+          <h4 style="margin: 0; font-size: 13px; font-weight: 600; color: #ffffff; line-height: 1.25;">${escapeHtml(st.title || st.host_name)}</h4>
+          <span style="font-size: 11px; color: #a1a1aa;">Host: ${escapeHtml(st.host_name)} • ${escapeHtml(st.city || "Kerala")}</span>
+        </div>
+
+        <div style="margin-top: 8px; padding: 6px 8px; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="color: #c4b5fd; font-size: 11px; font-weight: 500;">Standard Community Rate:</span>
+          <strong style="color: #ffffff; font-size: 12px; font-family: monospace;">₹${price} / kWh</strong>
+        </div>
+
+        <div style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #d4d4d8;">
+          <span style="color: #a1a1aa;">Queue:</span>
+          <span style="color: ${Number(st.queue_count) === 0 ? "#10b981" : "#f59e0b"}; font-weight: 600;">
+            ${Number(st.queue_count) === 0 ? "0 waiting (Immediate Access)" : `${st.queue_count} vehicle in queue`}
+          </span>
+        </div>
+
+        <div style="margin-top: 4px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: #d4d4d8;">
+          <span style="color: #a1a1aa;">Hardware:</span>
+          <strong style="color: #ffffff; font-size: 11px;">⚡ ${st.power_kw} kW • ${escapeHtml(st.connector_type)}</strong>
+        </div>
+
+        ${st.access_hours ? `
+          <div style="margin-top: 4px; font-size: 10px; color: #a1a1aa;">
+            🕒 <strong>Hours:</strong> ${escapeHtml(st.access_hours)}
+          </div>
+        ` : ""}
+
+        ${st.amenities ? `
+          <div style="margin-top: 4px; font-size: 10px; color: #c4b5fd;">
+            ✨ <strong>Amenities:</strong> ${escapeHtml(st.amenities)}
+          </div>
+        ` : ""}
+
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #27272a; display: flex; gap: 6px;">
+          <a 
+            href="tel:${st.phone}"
+            style="flex: 1; padding: 6px 8px; background: #27272a; color: #f4f4f5; border: 1px solid #3f3f46; border-radius: 6px; font-size: 11px; font-weight: 500; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;"
+          >
+            <span>📞 Call Host</span>
+          </a>
+          <button 
+            type="button"
+            onclick="window.zoltraakRouteViaStation(${st.id})"
+            style="flex: 1; padding: 6px 8px; background: #7c3aed; color: #ffffff; border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer;"
+          >
+            Route Here
+          </button>
         </div>
       </div>
     `;
@@ -536,6 +615,49 @@ export default function MapView({
 
     // 3. Stations & Clusters
     addStationsSourceAndLayers(map, clusteringEnabled);
+
+    // 4. Community Home EV Chargers (Distinct Violet Styling)
+    addCommunityChargersSourceAndLayers(map);
+  };
+
+  // Add Community Home Chargers Source and Layers
+  const addCommunityChargersSourceAndLayers = (map) => {
+    if (!map.getSource("community-chargers-source")) {
+      map.addSource("community-chargers-source", {
+        type: "geojson",
+        data: convertCommunityChargersToGeoJson(communityChargers),
+      });
+    }
+
+    if (!map.getLayer("community-chargers-halo")) {
+      map.addLayer({
+        id: "community-chargers-halo",
+        type: "circle",
+        source: "community-chargers-source",
+        layout: { visibility: showCommunityChargers ? "visible" : "none" },
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 12, 16, 16, 22],
+          "circle-color": "#a855f7",
+          "circle-opacity": 0.35,
+          "circle-blur": 0.45,
+        },
+      });
+    }
+
+    if (!map.getLayer("community-chargers-circle")) {
+      map.addLayer({
+        id: "community-chargers-circle",
+        type: "circle",
+        source: "community-chargers-source",
+        layout: { visibility: showCommunityChargers ? "visible" : "none" },
+        paint: {
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5.5, 11, 8.5, 15, 12],
+          "circle-color": "#7c3aed",
+          "circle-stroke-width": 2.5,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+    }
   };
 
   // Initialize MapLibre GL Map
@@ -633,12 +755,38 @@ export default function MapView({
         activePopupRef.current = popup;
       });
 
+      // Community Charger Marker Click -> Violet Popup
+      map.on("click", "community-chargers-circle", (e) => {
+        if (!e.features || !e.features.length) return;
+        const props = e.features[0].properties;
+        const coordinates = e.features[0].geometry.coordinates.slice();
+
+        if (activePopupRef.current) {
+          activePopupRef.current.remove();
+        }
+
+        const popup = new maplibregl.Popup({
+          closeButton: true,
+          closeOnClick: false,
+          offset: 14,
+          maxWidth: "340px",
+        })
+          .setLngLat(coordinates)
+          .setHTML(getCommunityChargerPopupHtml(props))
+          .addTo(map);
+
+        activePopupRef.current = popup;
+      });
+
       // Pointer cursors
       map.on("mouseenter", "stations-circles", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "stations-circles", () => { map.getCanvas().style.cursor = ""; });
       map.on("mouseenter", "station-clusters", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "station-clusters", () => { map.getCanvas().style.cursor = ""; });
       map.on("mouseenter", "h3-hexagons-fill", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "h3-hexagons-fill", () => { map.getCanvas().style.cursor = ""; });
+      map.on("mouseenter", "community-chargers-circle", () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", "community-chargers-circle", () => { map.getCanvas().style.cursor = ""; });
       // Viewport movement & zoom change listener
       const handleMoveEnd = () => {
         if (!map) return;
@@ -815,6 +963,27 @@ export default function MapView({
       mapRef.current.setLayoutProperty("h3-hexagons-line", "visibility", visibility);
     }
   }, [showH3Overlay]);
+
+  // Update Community Home Chargers Source Data
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const source = mapRef.current.getSource("community-chargers-source");
+    if (source && communityChargers) {
+      source.setData(convertCommunityChargersToGeoJson(communityChargers));
+    }
+  }, [communityChargers]);
+
+  // Toggle Community Home Chargers Overlay Visibility
+  useEffect(() => {
+    if (!mapRef.current) return;
+    const visibility = showCommunityChargers ? "visible" : "none";
+    if (mapRef.current.getLayer("community-chargers-halo")) {
+      mapRef.current.setLayoutProperty("community-chargers-halo", "visibility", visibility);
+    }
+    if (mapRef.current.getLayer("community-chargers-circle")) {
+      mapRef.current.setLayoutProperty("community-chargers-circle", "visibility", visibility);
+    }
+  }, [showCommunityChargers]);
 
   // Handle Focus Coordinate
   useEffect(() => {
@@ -1031,6 +1200,30 @@ export default function MapView({
             {showH3Overlay ? "ON" : "OFF"}
           </span>
         </button>
+
+        {/* Community Home Chargers Quick Toggle */}
+        {setShowCommunityChargers && (
+          <button
+            type="button"
+            onClick={() => setShowCommunityChargers(!showCommunityChargers)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border shadow-md text-xs font-medium transition-colors ${
+              showCommunityChargers
+                ? "bg-violet-950/80 border-violet-700 text-violet-200"
+                : "bg-zinc-950/90 border-zinc-800 text-zinc-500 hover:text-zinc-300"
+            }`}
+            title="Toggle Peer-to-Peer Community Home EV Chargers (Violet)"
+          >
+            <Home className="w-3.5 h-3.5 text-violet-400" />
+            <span>Community Hosts:</span>
+            <span
+              className={`px-1 py-0.2 rounded font-mono text-[10px] ${
+                showCommunityChargers ? "bg-violet-900/60 text-violet-200" : "bg-zinc-900 text-zinc-600"
+              }`}
+            >
+              {showCommunityChargers ? "ON" : "OFF"}
+            </span>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1077,6 +1270,40 @@ function convertStationsToGeoJson(stations = [], candidates = []) {
         h3_cell: st.h3_cell,
         tier: candidateMap.get(st.id) || "default",
         is_operational: st.is_operational !== false,
+      },
+    })),
+  };
+}
+
+function convertCommunityChargersToGeoJson(chargers = []) {
+  return {
+    type: "FeatureCollection",
+    features: chargers.map((c) => ({
+      type: "Feature",
+      id: `comm_${c.id}`,
+      geometry: {
+        type: "Point",
+        coordinates: [c.longitude, c.latitude],
+      },
+      properties: {
+        id: c.id,
+        is_community_host: true,
+        host_name: c.host_name,
+        title: c.title,
+        phone: c.phone,
+        address: c.address,
+        city: c.city,
+        state: c.state,
+        connector_type: c.connector_type,
+        power_kw: c.power_kw,
+        price_per_kwh: c.price_per_kwh,
+        availability_status: c.availability_status,
+        queue_count: c.queue_count,
+        trust_score: c.trust_score,
+        total_charges_served: c.total_charges_served,
+        access_hours: c.access_hours,
+        amenities: c.amenities,
+        notes: c.notes || "",
       },
     })),
   };

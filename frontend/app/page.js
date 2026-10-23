@@ -6,12 +6,16 @@ import FilterBar from "@/components/FilterBar";
 import RoutePlannerPanel, { EV_PRESETS } from "@/components/RoutePlannerPanel";
 import StationDetailsDrawer from "@/components/StationDetailsDrawer";
 import StatusIndicator from "@/components/StatusIndicator";
+import ListHomeChargerModal from "@/components/ListHomeChargerModal";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function Home() {
   // Station Data & Metadata
   const [stations, setStations] = useState([]);
+  const [communityChargers, setCommunityChargers] = useState([]);
+  const [showCommunityChargers, setShowCommunityChargers] = useState(true);
+  const [isListHomeChargerOpen, setIsListHomeChargerOpen] = useState(false);
   const [h3GeoJson, setH3GeoJson] = useState(null);
   const [h3Resolution, setH3Resolution] = useState(7);
   const [metadata, setMetadata] = useState({
@@ -128,6 +132,19 @@ export default function Home() {
     }
   }, [selectedOperator, selectedConnector, minPower]);
 
+  // Fetch Community Home Chargers
+  const fetchCommunityChargers = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/community-chargers`);
+      if (res.ok) {
+        const data = await res.json();
+        setCommunityChargers(data.items || []);
+      }
+    } catch (err) {
+      console.warn("Could not fetch community chargers:", err);
+    }
+  }, []);
+
   // Fetch Dynamic H3 Hexagon Grid GeoJSON (with zoom-based subdivision & viewport bounding)
   const fetchH3Grid = useCallback(
     async (zoom = null, bounds = null) => {
@@ -233,9 +250,10 @@ export default function Home() {
     fetchPresetCities();
     fetchMetadata();
     fetchStations();
+    fetchCommunityChargers();
     fetchH3Grid(viewportZoom, viewportBounds);
     fetchNearbyStations(viewportCenter.latitude, viewportCenter.longitude, nearbyRadiusKm, nearbySortBy);
-  }, [fetchPresetCities, fetchMetadata, fetchStations, fetchH3Grid, fetchNearbyStations]);
+  }, [fetchPresetCities, fetchMetadata, fetchStations, fetchCommunityChargers, fetchH3Grid, fetchNearbyStations]);
 
   // Phase 3: Calculate OSRM Route & Corridor Candidate Stations
   const handleCalculateRoute = async (stationOverride = null) => {
@@ -372,6 +390,9 @@ export default function Home() {
         onViewportChange={handleViewportChange}
         h3Resolution={h3Resolution}
         showCenterReticle={!routeData}
+        communityChargers={communityChargers}
+        showCommunityChargers={showCommunityChargers}
+        setShowCommunityChargers={setShowCommunityChargers}
       />
 
       {/* 2. Left Route & Battery Planner Sidebar */}
@@ -428,9 +449,14 @@ export default function Home() {
           totalStations={metadata.total_stations}
           filteredCount={filteredStations.length}
           isLoading={isLoading}
+          showCommunityChargers={showCommunityChargers}
+          setShowCommunityChargers={setShowCommunityChargers}
+          totalCommunityChargers={communityChargers.length}
+          onOpenListHomeChargerModal={() => setIsListHomeChargerOpen(true)}
           onRefresh={() => {
             fetchMetadata();
             fetchStations();
+            fetchCommunityChargers();
             fetchH3Grid();
           }}
           onSelectPlace={(lng, lat) => setFocusCoordinate([lng, lat])}
@@ -447,6 +473,7 @@ export default function Home() {
         onRetry={() => {
           fetchMetadata();
           fetchStations();
+          fetchCommunityChargers();
           fetchH3Grid();
         }}
       />
@@ -465,6 +492,20 @@ export default function Home() {
           }
         />
       )}
+
+      {/* 6. List Community Home Charger Modal */}
+      <ListHomeChargerModal
+        isOpen={isListHomeChargerOpen}
+        onClose={() => setIsListHomeChargerOpen(false)}
+        mapCenter={viewportCenter}
+        apiBaseUrl={API_BASE_URL}
+        onChargerCreated={(newCharger) => {
+          setCommunityChargers((prev) => [newCharger, ...prev]);
+          if (newCharger.longitude && newCharger.latitude) {
+            setFocusCoordinate([Number(newCharger.longitude), Number(newCharger.latitude)]);
+          }
+        }}
+      />
     </main>
   );
 }

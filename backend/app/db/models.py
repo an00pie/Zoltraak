@@ -127,3 +127,40 @@ class IngestionRun(Base):
 
     def __repr__(self) -> str:
         return f"<IngestionRun(id={self.id}, status='{self.status}', fetched={self.records_fetched})>"
+
+
+class CommunityCharger(Base):
+    """Peer-to-peer community & homeowner EV charger listing."""
+
+    __tablename__ = "community_chargers"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    host_name = Column(String(120), nullable=False, index=True)
+    title = Column(String(200), nullable=False, index=True)
+    phone = Column(String(50), nullable=False)
+
+    address = Column(String(500), nullable=False)
+    city = Column(String(100), nullable=False, index=True)
+    state = Column(String(100), default="Kerala", nullable=False, index=True)
+
+    latitude = Column(Float, nullable=False, index=True)
+    longitude = Column(Float, nullable=False, index=True)
+    h3_cell = Column(String(20), nullable=False, index=True)
+
+    connector_type = Column(String(50), default="Type 2 (AC)", nullable=False)
+    power_kw = Column(Float, default=7.4, nullable=False)
+    price_per_kwh = Column(Float, default=11.50, nullable=False)  # Standard fixed community EV tariff
+
+    availability_status = Column(String(50), default="available", nullable=False)  # available, in_use, reserved
+    queue_count = Column(Integer, default=0, nullable=False)
+    trust_score = Column(Float, default=4.9, nullable=False)  # 1.0 - 5.0 rating
+    total_charges_served = Column(Integer, default=12, nullable=False)
+
+    access_hours = Column(String(100), default="6:00 AM - 10:00 PM", nullable=False)
+    amenities = Column(String(255), default="Covered Parking, Wi-Fi, Restroom", nullable=False)
+    notes = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<CommunityCharger(id={self.id}, host='{self.host_name}', city='{self.city}')>"

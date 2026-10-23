@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Search, Zap, Layers, RefreshCw, Filter, X, MapPin } from "lucide-react";
+import { Search, Zap, Layers, RefreshCw, Filter, X, MapPin, Home, Plus } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -24,6 +24,10 @@ export default function FilterBar({
   isLoading = false,
   onRefresh,
   onSelectPlace,
+  showCommunityChargers = true,
+  setShowCommunityChargers = null,
+  totalCommunityChargers = 0,
+  onOpenListHomeChargerModal = null,
 }) {
   const [placeSuggestions, setPlaceSuggestions] = useState([]);
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
@@ -154,6 +158,41 @@ export default function FilterBar({
             {showH3Overlay ? "ON" : "OFF"}
           </span>
         </button>
+
+        {/* Community Home Chargers Toggle */}
+        {setShowCommunityChargers && (
+          <button
+            type="button"
+            onClick={() => setShowCommunityChargers(!showCommunityChargers)}
+            className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
+              showCommunityChargers
+                ? "bg-violet-950/80 border border-violet-700 text-violet-200"
+                : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200"
+            }`}
+            title="Toggle Peer-to-Peer Community Home EV Chargers"
+          >
+            <Home className="w-3.5 h-3.5 text-violet-400" />
+            <span>Community</span>
+            {totalCommunityChargers > 0 && (
+              <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${showCommunityChargers ? "bg-violet-900/60 text-violet-300" : "bg-zinc-800 text-zinc-500"}`}>
+                {totalCommunityChargers}
+              </span>
+            )}
+          </button>
+        )}
+
+        {/* List Home Charger Button */}
+        {onOpenListHomeChargerModal && (
+          <button
+            type="button"
+            onClick={onOpenListHomeChargerModal}
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium text-xs shadow-md transition-colors shrink-0"
+            title="List your residential EV charger"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>List Home Charger</span>
+          </button>
+        )}
 
         {/* Refresh button */}
         <button
