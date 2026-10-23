@@ -1,6 +1,7 @@
 import math
 from typing import List, Optional, Dict, Any, Set
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func, distinct
 import h3
@@ -324,3 +325,50 @@ def get_station(
             detail=f"Station with ID {station_id} not found",
         )
     return station
+
+
+class OperatorStationUpdate(BaseModel):
+    is_operational: Optional[bool] = None
+    status_type: Optional[str] = None  # "Operational", "Under Maintenance", "Temporarily Unavailable"
+    number_of_points: Optional[int] = None
+    usage_cost: Optional[str] = None
+
+
+@router.patch("/stations/{station_id}/operator-status", tags=["Stations"])
+def update_station_operator_status(
+    station_id: int,
+    payload: OperatorStationUpdate,
+    db: Session = Depends(get_db),
+):
+    """Allow station operators/business owners to update operational status, pricing, and ports."""
+    station = db.query(Station).filter(Station.id == station_id).first()
+    if not station:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Station with ID {station_id} not found",
+        )
+
+    if payload.is_operational is not None:
+        station.is_operational = payload.is_operational
+    if payload.status_type is not None:
+        station.status_type = payload.status_type
+    if payload.number_of_points is not None:
+        station.number_of_points = payload.number_of_points
+    if payload.usage_cost is not None:
+        station.usage_cost = payload.usage_cost
+
+    db.commit()
+    db.refresh(station)
+
+    return {
+        "status": "success",
+        "message": f"Station '{station.name}' updated by operator.",
+        "station": {
+            "id": station.id,
+            "name": station.name,
+            "is_operational": station.is_operational,
+            "status_type": station.status_type,
+            "number_of_points": station.number_of_points,
+            "usage_cost": station.usage_cost,
+        },
+    }

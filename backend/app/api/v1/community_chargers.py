@@ -254,3 +254,60 @@ def update_charger_status(
         "availability_status": charger.availability_status,
         "queue_count": charger.queue_count,
     }
+
+
+class CommunityChargerUpdateDetails(BaseModel):
+    title: Optional[str] = None
+    host_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    connector_type: Optional[str] = None
+    power_kw: Optional[float] = None
+    availability_status: Optional[str] = None
+    queue_count: Optional[int] = None
+    access_hours: Optional[str] = None
+    amenities: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@router.put("/community-chargers/{charger_id}", tags=["Community Chargers"])
+def update_charger_details(
+    charger_id: int,
+    payload: CommunityChargerUpdateDetails,
+    db: Session = Depends(get_db),
+):
+    """Full update of homeowner charger details from owner management portal."""
+    charger = db.query(CommunityCharger).filter(CommunityCharger.id == charger_id).first()
+    if not charger:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Community charger with ID {charger_id} not found",
+        )
+
+    for field, val in payload.model_dump(exclude_unset=True).items():
+        if val is not None:
+            setattr(charger, field, val)
+
+    db.commit()
+    db.refresh(charger)
+
+    return {
+        "status": "success",
+        "message": f"Charger '{charger.title}' updated successfully!",
+        "charger": {
+            "id": charger.id,
+            "host_name": charger.host_name,
+            "title": charger.title,
+            "phone": charger.phone,
+            "address": charger.address,
+            "city": charger.city,
+            "power_kw": charger.power_kw,
+            "connector_type": charger.connector_type,
+            "availability_status": charger.availability_status,
+            "queue_count": charger.queue_count,
+            "access_hours": charger.access_hours,
+            "amenities": charger.amenities,
+            "notes": charger.notes,
+        },
+    }

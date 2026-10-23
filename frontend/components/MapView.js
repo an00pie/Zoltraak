@@ -85,6 +85,7 @@ export default function MapView({
   communityChargers = [],
   showCommunityChargers = true,
   setShowCommunityChargers = null,
+  stationFilterMode = "all", // 'all' | 'community_only' | 'public_only'
   clusteringEnabled = true,
   setClusteringEnabled = null,
   currentStyle = "dark",
@@ -136,10 +137,12 @@ export default function MapView({
 
   // Global window handlers for interactive popup buttons
   useEffect(() => {
-    window.zoltraakSelectStation = (id) => {
+    window.zoltraakSelectStation = (id, isCommunity = false) => {
       const matched =
+        (isCommunity ? communityChargers.find((c) => c.id === id) : null) ||
         candidateStations.find((s) => s.id === id) ||
-        stations.find((s) => s.id === id);
+        stations.find((s) => s.id === id) ||
+        communityChargers.find((c) => c.id === id);
       if (matched && onSelectStation) {
         onSelectStation(matched);
       }
@@ -148,7 +151,8 @@ export default function MapView({
     window.zoltraakRouteViaStation = (id) => {
       const matched =
         candidateStations.find((s) => s.id === id) ||
-        stations.find((s) => s.id === id);
+        stations.find((s) => s.id === id) ||
+        communityChargers.find((c) => c.id === id);
       if (matched && onRouteViaStation) {
         onRouteViaStation(matched);
       }
@@ -158,7 +162,7 @@ export default function MapView({
       delete window.zoltraakSelectStation;
       delete window.zoltraakRouteViaStation;
     };
-  }, [stations, candidateStations, onSelectStation, onRouteViaStation]);
+  }, [stations, candidateStations, communityChargers, onSelectStation, onRouteViaStation]);
 
   // Generate Station Popup HTML
   const getStationPopupHtml = (st) => {
@@ -256,7 +260,7 @@ export default function MapView({
     `;
   };
 
-  // Generate Community Home Charger Popup HTML (Distinct Violet Theme)
+  // Generate Community Home Charger Popup HTML (Distinct Blue Theme)
   const getCommunityChargerPopupHtml = (st) => {
     const isAvail = st.availability_status === "available";
     const statusColor = isAvail ? "#10b981" : "#d97706";
@@ -268,8 +272,8 @@ export default function MapView({
       <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 12px; color: #f4f4f5; min-width: 270px; max-width: 320px; padding: 2px;">
         <div style="display: flex; align-items: center; justify-content: space-between; gap: 6px; border-bottom: 1px solid #27272a; padding-bottom: 6px; margin-bottom: 6px;">
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; background: rgba(139, 92, 246, 0.2); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.4);">
-              🏠 COMMUNITY HOST
+            <span style="padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; background: rgba(37, 99, 235, 0.25); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.5);">
+              🏠 HOMEOWNER HOST (BLUE)
             </span>
             <span style="font-size: 11px; color: #fbbf24; font-weight: 600;">★ ${st.trust_score || "5.0"}</span>
           </div>
@@ -283,8 +287,8 @@ export default function MapView({
           <span style="font-size: 11px; color: #a1a1aa;">Host: ${escapeHtml(st.host_name)} • ${escapeHtml(st.city || "Kerala")}</span>
         </div>
 
-        <div style="margin-top: 8px; padding: 6px 8px; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
-          <span style="color: #c4b5fd; font-size: 11px; font-weight: 500;">Standard Community Rate:</span>
+        <div style="margin-top: 8px; padding: 6px 8px; background: rgba(37, 99, 235, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="color: #93c5fd; font-size: 11px; font-weight: 500;">Standard Community Rate:</span>
           <strong style="color: #ffffff; font-size: 12px; font-family: monospace;">₹${price} / kWh</strong>
         </div>
 
@@ -307,7 +311,7 @@ export default function MapView({
         ` : ""}
 
         ${st.amenities ? `
-          <div style="margin-top: 4px; font-size: 10px; color: #c4b5fd;">
+          <div style="margin-top: 4px; font-size: 10px; color: #93c5fd;">
             ✨ <strong>Amenities:</strong> ${escapeHtml(st.amenities)}
           </div>
         ` : ""}
@@ -315,16 +319,16 @@ export default function MapView({
         <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #27272a; display: flex; gap: 6px;">
           <a 
             href="tel:${st.phone}"
-            style="flex: 1; padding: 6px 8px; background: #27272a; color: #f4f4f5; border: 1px solid #3f3f46; border-radius: 6px; font-size: 11px; font-weight: 500; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;"
+            style="flex: 1; padding: 6px 8px; background: #1e293b; color: #f8fafc; border: 1px solid #334155; border-radius: 6px; font-size: 11px; font-weight: 500; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px;"
           >
             <span>📞 Call Host</span>
           </a>
           <button 
             type="button"
-            onclick="window.zoltraakRouteViaStation(${st.id})"
-            style="flex: 1; padding: 6px 8px; background: #7c3aed; color: #ffffff; border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer;"
+            onclick="window.zoltraakSelectStation && window.zoltraakSelectStation(${st.id}, true)"
+            style="flex: 1; padding: 6px 8px; background: #2563eb; color: #ffffff; border: none; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer;"
           >
-            Route Here
+            Details & Report
           </button>
         </div>
       </div>
@@ -641,9 +645,9 @@ export default function MapView({
         layout: { visibility: showCommunityChargers ? "visible" : "none" },
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 12, 16, 16, 22],
-          "circle-color": "#a855f7",
-          "circle-opacity": 0.35,
-          "circle-blur": 0.45,
+          "circle-color": "#38bdf8",
+          "circle-opacity": 0.4,
+          "circle-blur": 0.4,
         },
       });
     }
@@ -655,8 +659,8 @@ export default function MapView({
         source: "community-chargers-source",
         layout: { visibility: showCommunityChargers ? "visible" : "none" },
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 5.5, 11, 8.5, 15, 12],
-          "circle-color": "#7c3aed",
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 11, 9, 15, 13],
+          "circle-color": "#2563eb",
           "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff",
         },
@@ -759,11 +763,20 @@ export default function MapView({
         activePopupRef.current = popup;
       });
 
-      // Community Charger Marker Click -> Violet Popup
+      // Community Charger Marker Click -> Blue Popup & Select Station
       map.on("click", "community-chargers-circle", (e) => {
         if (!e.features || !e.features.length) return;
         const props = e.features[0].properties;
         const coordinates = e.features[0].geometry.coordinates.slice();
+
+        const matched = communityChargers.find((c) => c.id === props.id) || {
+          ...props,
+          is_community_host: true,
+        };
+
+        if (onSelectStation) {
+          onSelectStation(matched);
+        }
 
         if (activePopupRef.current) {
           activePopupRef.current.remove();
@@ -1003,17 +1016,42 @@ export default function MapView({
     }
   }, [communityChargers]);
 
-  // Toggle Community Home Chargers Overlay Visibility
+  // Toggle Community & Public Station Layers based on stationFilterMode
   useEffect(() => {
     if (!mapRef.current) return;
-    const visibility = showCommunityChargers ? "visible" : "none";
-    if (mapRef.current.getLayer("community-chargers-halo")) {
-      mapRef.current.setLayoutProperty("community-chargers-halo", "visibility", visibility);
+    const map = mapRef.current;
+
+    const showCommunity =
+      stationFilterMode === "community_only"
+        ? true
+        : stationFilterMode === "public_only"
+        ? false
+        : showCommunityChargers;
+
+    const showPublic = stationFilterMode !== "community_only";
+
+    const commVis = showCommunity ? "visible" : "none";
+    if (map.getLayer("community-chargers-halo")) {
+      map.setLayoutProperty("community-chargers-halo", "visibility", commVis);
     }
-    if (mapRef.current.getLayer("community-chargers-circle")) {
-      mapRef.current.setLayoutProperty("community-chargers-circle", "visibility", visibility);
+    if (map.getLayer("community-chargers-circle")) {
+      map.setLayoutProperty("community-chargers-circle", "visibility", commVis);
     }
-  }, [showCommunityChargers]);
+
+    const pubVis = showPublic ? "visible" : "none";
+    const pubLayers = [
+      "stations-circles",
+      "stations-halo",
+      "station-clusters",
+      "station-clusters-halo",
+      "station-cluster-count",
+    ];
+    pubLayers.forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.setLayoutProperty(layerId, "visibility", pubVis);
+      }
+    });
+  }, [showCommunityChargers, stationFilterMode]);
 
   // Handle Focus Coordinate
   useEffect(() => {

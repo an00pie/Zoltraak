@@ -164,3 +164,28 @@ class CommunityCharger(Base):
 
     def __repr__(self) -> str:
         return f"<CommunityCharger(id={self.id}, host='{self.host_name}', city='{self.city}')>"
+
+
+class StationReport(Base):
+    """Crowdsourced status, availability, and rating report submitted by EV drivers or operators."""
+
+    __tablename__ = "station_reports"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    station_type = Column(String(30), default="public", nullable=False, index=True)  # 'public' or 'community'
+    station_id = Column(Integer, nullable=False, index=True)
+    user_name = Column(String(120), default="EV Driver", nullable=False)
+    user_role = Column(String(50), default="customer", nullable=False)  # 'customer', 'operator', 'homeowner'
+
+    report_status = Column(
+        String(50),
+        nullable=False,
+        default="available",
+    )  # 'available', 'busy', 'unavailable', 'broken_connector', 'ice_blocked'
+    rating = Column(Integer, default=5, nullable=False)  # 1 to 5 stars
+    comment = Column(Text, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    def __repr__(self) -> str:
+        return f"<StationReport(id={self.id}, type='{self.station_type}', station_id={self.station_id}, status='{self.report_status}')>"

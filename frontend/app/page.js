@@ -18,6 +18,9 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import MobileStationCard from "@/components/MobileStationCard";
 import SessionsModal from "@/components/SessionsModal";
 import NotificationsModal from "@/components/NotificationsModal";
+import AuthModal, { PRESET_PROFILES } from "@/components/AuthModal";
+import ReportStationModal from "@/components/ReportStationModal";
+import OwnerDashboardModal from "@/components/OwnerDashboardModal";
 import { DEFAULT_VEHICLE } from "@/data/vehicles";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
@@ -26,6 +29,18 @@ export default function Home() {
   // Navigation & View Mode: 'map' | 'home'
   const [currentView, setCurrentView] = useState("map");
   const [mobileNavTab, setMobileNavTab] = useState("map");
+
+  // User Authentication & Role System
+  const [currentUser, setCurrentUser] = useState(PRESET_PROFILES[0]);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isOwnerDashboardOpen, setIsOwnerDashboardOpen] = useState(false);
+
+  // Crowdsourced Reporting Modal
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportingStation, setReportingStation] = useState(null);
+
+  // Station Filter Mode: 'all' | 'community_only' | 'public_only'
+  const [stationFilterMode, setStationFilterMode] = useState("all");
 
   // Vehicle Onboarding & Garage Profile
   const [selectedEv, setSelectedEv] = useState(DEFAULT_VEHICLE);
@@ -94,13 +109,17 @@ export default function Home() {
   const [routeData, setRouteData] = useState(null);
   const [selectedStationStop, setSelectedStationStop] = useState(null);
 
-  // Check saved vehicle or trigger onboarding on first visit
+  // Check saved vehicle and user role on first visit
   useEffect(() => {
     try {
       const savedVehicle = localStorage.getItem("zoltraak_user_ev");
       const hasOnboarded = localStorage.getItem("zoltraak_has_onboarded");
+      const savedUser = localStorage.getItem("zoltraak_auth_user");
       if (savedVehicle) {
         setSelectedEv(JSON.parse(savedVehicle));
+      }
+      if (savedUser) {
+        setCurrentUser(JSON.parse(savedUser));
       }
       if (!hasOnboarded) {
         setIsVehicleSelectorOpen(true);
@@ -116,6 +135,18 @@ export default function Home() {
       localStorage.setItem("zoltraak_user_ev", JSON.stringify(vehicle));
       localStorage.setItem("zoltraak_has_onboarded", "true");
     } catch (e) {}
+  };
+
+  const handleSelectUser = (user) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem("zoltraak_auth_user", JSON.stringify(user));
+    } catch (e) {}
+  };
+
+  const handleOpenReportModal = (st) => {
+    setReportingStation(st);
+    setIsReportModalOpen(true);
   };
 
   // Real Browser GPS Geolocation Recenter
@@ -475,6 +506,9 @@ export default function Home() {
         selectedVehicle={selectedEv}
         onChangeVehicleClick={() => setIsVehicleSelectorOpen(true)}
         onOpenProfile={() => setIsProfileOpen(true)}
+        currentUser={currentUser}
+        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenOwnerDashboard={() => setIsOwnerDashboardOpen(true)}
       />
 
       {/* VIEW 1: LANDING PAGE */}
@@ -528,6 +562,7 @@ export default function Home() {
             communityChargers={communityChargers}
             showCommunityChargers={showCommunityChargers}
             setShowCommunityChargers={setShowCommunityChargers}
+            stationFilterMode={stationFilterMode}
             clusteringEnabled={clusteringEnabled}
             setClusteringEnabled={setClusteringEnabled}
             currentStyle={currentStyle}
@@ -547,6 +582,8 @@ export default function Home() {
               setShowH3Overlay={setShowH3Overlay}
               showCommunityChargers={showCommunityChargers}
               setShowCommunityChargers={setShowCommunityChargers}
+              stationFilterMode={stationFilterMode}
+              onChangeStationFilterMode={setStationFilterMode}
               onOpenAdvancedFilters={() => setShowDesktopFilters(!showDesktopFilters)}
               onLocateMe={handleLocateMe}
               apiBaseUrl={API_BASE_URL}
@@ -598,11 +635,14 @@ export default function Home() {
             onToggleClustering={() => setClusteringEnabled(!clusteringEnabled)}
             showH3Overlay={showH3Overlay}
             onToggleH3={() => setShowH3Overlay(!showH3Overlay)}
-            showCommunityChargers={showCommunityChargers}
-            onToggleCommunity={() => setShowCommunityChargers(!showCommunityChargers)}
+            stationFilterMode={stationFilterMode}
+            onChangeStationFilterMode={setStationFilterMode}
             totalCommunityChargers={communityChargers.length}
             currentStyle={currentStyle}
             onChangeStyle={(st) => setCurrentStyle(st)}
+            currentUser={currentUser}
+            onOpenAuthModal={() => setIsAuthModalOpen(true)}
+            onOpenOwnerDashboard={() => setIsOwnerDashboardOpen(true)}
           />
 
           {/* 4. Floating Bottom Station Preview Card (Matching Image 4) */}
@@ -610,6 +650,7 @@ export default function Home() {
             <div className="absolute bottom-20 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-20 flex justify-center">
               <MobileStationCard
                 station={activeMobileStation}
+                onOpenReportModal={handleOpenReportModal}
                 onGetDirection={(st) => {
                   if (origin && destination) {
                     handleSelectStationStop(st);
@@ -641,6 +682,10 @@ export default function Home() {
                 selectedStationStop?.id === selectedStation.id ||
                 routeData?.routed_via_station?.station_id === selectedStation.id
               }
+              currentUser={currentUser}
+              onOpenReportModal={handleOpenReportModal}
+              onOpenOwnerDashboard={() => setIsOwnerDashboardOpen(true)}
+              apiBaseUrl={API_BASE_URL}
             />
           )}
 
@@ -737,7 +782,51 @@ export default function Home() {
         }}
       />
 
-      {/* 13. System Status Indicator */}
+      {/* 13. User Authentication & Role Switcher Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        currentUser={currentUser}
+        onSelectUser={handleSelectUser}
+      />
+
+      {/* 14. Crowdsourced Driver Reporting & Rating Modal */}
+      <ReportStationModal
+        isOpen={isReportModalOpen}
+        onClose={() => {
+          setIsReportModalOpen(false);
+          setReportingStation(null);
+        }}
+        station={reportingStation}
+        currentUser={currentUser}
+        apiBaseUrl={API_BASE_URL}
+        onReportSuccess={() => {
+          fetchStations();
+          fetchCommunityChargers();
+          if (selectedStation) {
+            setSelectedStation({ ...selectedStation });
+          }
+        }}
+      />
+
+      {/* 15. Homeowner & Operator Management Dashboard Modal */}
+      <OwnerDashboardModal
+        isOpen={isOwnerDashboardOpen}
+        onClose={() => setIsOwnerDashboardOpen(false)}
+        currentUser={currentUser}
+        communityChargers={communityChargers}
+        publicStations={stations}
+        apiBaseUrl={API_BASE_URL}
+        onChargerUpdated={(updatedCharger) => {
+          fetchCommunityChargers();
+          fetchStations();
+          if (updatedCharger && updatedCharger.latitude && updatedCharger.longitude) {
+            setFocusCoordinate([Number(updatedCharger.longitude), Number(updatedCharger.latitude)]);
+          }
+        }}
+      />
+
+      {/* 16. System Status Indicator */}
       <StatusIndicator
         backendOnline={backendOnline}
         errorMessage={errorMessage}

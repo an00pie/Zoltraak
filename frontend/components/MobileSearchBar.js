@@ -23,6 +23,8 @@ export default function MobileSearchBar({
   setShowH3Overlay,
   showCommunityChargers,
   setShowCommunityChargers,
+  stationFilterMode = "all",
+  onChangeStationFilterMode = null,
   onOpenScanner,
   onLocateMe,
   onOpenAdvancedFilters,
@@ -156,18 +158,23 @@ export default function MobileSearchBar({
         <button
           type="button"
           onClick={() => {
-            const next = !showCommunityChargers;
-            if (setShowCommunityChargers) setShowCommunityChargers(next);
-            setActiveFilterChip(next ? "community" : "all");
+            const nextMode =
+              stationFilterMode === "community_only" ? "all" : "community_only";
+            if (onChangeStationFilterMode) {
+              onChangeStationFilterMode(nextMode);
+            }
+            if (setShowCommunityChargers) {
+              setShowCommunityChargers(true);
+            }
           }}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 flex items-center space-x-1 ${
-            showCommunityChargers
-              ? "bg-violet-700 text-white shadow-sm"
-              : "bg-white/90 text-zinc-700 border border-zinc-200 hover:bg-white"
+          className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 flex items-center space-x-1.5 ${
+            stationFilterMode === "community_only"
+              ? "bg-blue-600 text-white shadow-md border border-blue-400"
+              : "bg-white/95 text-blue-700 border border-blue-200 hover:bg-blue-50"
           }`}
         >
-          <Home className="w-3 h-3" />
-          <span>Community Hosts</span>
+          <Home className="w-3.5 h-3.5" />
+          <span>Home Hosts (Blue)</span>
         </button>
 
         <button

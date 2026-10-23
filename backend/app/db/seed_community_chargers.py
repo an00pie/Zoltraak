@@ -384,3 +384,65 @@ def seed_community_chargers_if_empty(db: Session, force_refresh: bool = False) -
 
     db.commit()
     return inserted
+
+
+def seed_initial_reports_if_empty(db: Session) -> int:
+    """Seed sample crowd-sourced reports for community chargers and public stations."""
+    from backend.app.db.models import StationReport, Station
+    from datetime import datetime, timedelta
+
+    count = db.query(StationReport).count()
+    if count > 0:
+        return count
+
+    chargers = db.query(CommunityCharger).limit(20).all()
+    reports = []
+    sample_comments = [
+        ("Naveen R.", "customer", "available", 5, "Charging at full 7.4 kW right now. Host is very accommodating!"),
+        ("Suresh K.", "customer", "available", 5, "Easy driveway access, scan & pay worked seamlessly."),
+        ("Priya M.", "customer", "busy", 4, "One Nexon charging ahead of me, waiting about 15 mins."),
+        ("Rohit Menon", "customer", "available", 5, "Clean parking spot and high-speed Wi-Fi while waiting."),
+        ("George V.", "customer", "available", 5, "Very reliable home charger on the highway corridor."),
+    ]
+
+    for i, c in enumerate(chargers):
+        name, role, st, stars, comm = sample_comments[i % len(sample_comments)]
+        reports.append(
+            StationReport(
+                station_type="community",
+                station_id=c.id,
+                user_name=name,
+                user_role=role,
+                report_status=st,
+                rating=stars,
+                comment=comm,
+                created_at=datetime.utcnow() - timedelta(minutes=random.randint(5, 120)),
+            )
+        )
+
+    # Also seed for top public stations
+    public_stations = db.query(Station).limit(10).all()
+    pub_comments = [
+        ("Kiran Das", "customer", "available", 5, "Both CCS2 guns operational. Delivering 60kW."),
+        ("Harish P.", "customer", "available", 5, "Fast charge, paid via RFID card without issue."),
+        ("Amal Joy", "customer", "busy", 4, "All 2 bays occupied right now."),
+    ]
+    for i, s in enumerate(public_stations):
+        name, role, st, stars, comm = pub_comments[i % len(pub_comments)]
+        reports.append(
+            StationReport(
+                station_type="public",
+                station_id=s.id,
+                user_name=name,
+                user_role=role,
+                report_status=st,
+                rating=stars,
+                comment=comm,
+                created_at=datetime.utcnow() - timedelta(minutes=random.randint(10, 240)),
+            )
+        )
+
+    for r in reports:
+        db.add(r)
+    db.commit()
+    return len(reports)
