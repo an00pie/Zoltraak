@@ -243,6 +243,13 @@ export default function Home() {
     setIsRouting(true);
 
     try {
+      const isExplicitClear = stationOverride && stationOverride.id === -1;
+      const targetStationId = isExplicitClear
+        ? -1
+        : stationOverride
+        ? stationOverride.id
+        : selectedStationStop?.id || null;
+
       const payload = {
         origin: {
           name: origin.name,
@@ -257,7 +264,8 @@ export default function Home() {
         current_soc: batterySoC,
         battery_capacity_kwh: selectedEv.capacityKwh,
         min_reserve_soc: minReserveSoC,
-        selected_station_id: stationOverride ? stationOverride.id : selectedStationStop?.id || null,
+        selected_station_id: targetStationId,
+        auto_select_optimal: !isExplicitClear,
       };
 
       const res = await fetch(`${API_BASE_URL}/api/v1/routing/plan`, {
@@ -270,6 +278,23 @@ export default function Home() {
 
       const data = await res.json();
       setRouteData(data);
+
+      // Auto-sync selectedStationStop from optimal route selection
+      if (data.routed_via_station) {
+        const matched = data.candidate_stations?.find(
+          (c) => c.id === data.routed_via_station.station_id
+        );
+        setSelectedStationStop(
+          matched || {
+            id: data.routed_via_station.station_id,
+            name: data.routed_via_station.station_name,
+            latitude: data.routed_via_station.station_latitude,
+            longitude: data.routed_via_station.station_longitude,
+          }
+        );
+      } else {
+        setSelectedStationStop(null);
+      }
     } catch (err) {
       console.error("Routing calculation error:", err);
     } finally {
@@ -284,16 +309,16 @@ export default function Home() {
     }
   }, [origin, destination]);
 
-  // Add / Select intermediate charging stop
+  // Add / Select intermediate charging stop (user preference)
   const handleSelectStationStop = (station) => {
     setSelectedStationStop(station);
     handleCalculateRoute(station);
   };
 
-  // Remove intermediate charging stop
+  // Remove intermediate charging stop (switch to direct route)
   const handleClearStationStop = () => {
     setSelectedStationStop(null);
-    handleCalculateRoute({ id: null });
+    handleCalculateRoute({ id: -1 });
   };
 
   // Clear active route and switch cleanly to non-routing viewport exploration mode

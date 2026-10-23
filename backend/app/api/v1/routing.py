@@ -27,6 +27,7 @@ class RoutePlanRequest(BaseModel):
     battery_capacity_kwh: float = Field(40.5, ge=10.0, le=200.0, description="EV battery pack capacity (kWh)")
     min_reserve_soc: float = Field(15.0, ge=5.0, le=50.0, description="Desired minimum reserve at destination (%)")
     selected_station_id: Optional[int] = Field(None, description="Optional intermediate station to route through")
+    auto_select_optimal: bool = Field(True, description="Automatically pick and route through the most optimal EV charging station")
 
 
 @router.get("/routing/preset-cities", tags=["Routing"])
@@ -130,10 +131,21 @@ def plan_ev_route(
         request.battery_capacity_kwh * (request.min_reserve_soc / 100.0)
     )
 
-    # 4. Multi-stop Routing through chosen station if provided
+    # 4. Multi-stop Routing: auto-select most optimal station or use user preference
+    target_station_id = None
+    if request.selected_station_id is not None and request.selected_station_id > 0:
+        target_station_id = request.selected_station_id
+    elif request.selected_station_id is None and request.auto_select_optimal and candidates:
+        # Prioritize 'optimal' tier candidates with minimal detour, then 'acceptable'
+        optimal_candidates = [c for c in candidates if c.get("tier") == "optimal"]
+        if optimal_candidates:
+            target_station_id = optimal_candidates[0]["id"]
+        elif candidates:
+            target_station_id = candidates[0]["id"]
+
     routed_via_station = None
-    if request.selected_station_id:
-        station = db.query(Station).filter(Station.id == request.selected_station_id).first()
+    if target_station_id:
+        station = db.query(Station).filter(Station.id == target_station_id).first()
         if station:
             stop_route = osrm_client.get_route_via_waypoint(
                 origin_lng=origin.longitude,
@@ -156,6 +168,7 @@ def plan_ev_route(
                 "coordinates": stop_route["coordinates"],
                 "summary": stop_route.get("summary", f"Via {station.name}"),
                 "steps": stop_route.get("steps", []),
+                "is_auto_selected": request.selected_station_id is None,
             }
 
     return {
