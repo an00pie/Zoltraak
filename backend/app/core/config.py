@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     OCM_DEFAULT_MAX_RESULTS: int = 100
     OCM_TIMEOUT_SECONDS: float = 20.0
 
+    # OpenStreetMap (OSM) API Credentials
+    OSM_CLIENT_ID: Optional[str] = None
+    OSM_CLIENT_SECRET: Optional[str] = None
+    OSM_NOMINATIM_BASE_URL: str = "https://nominatim.openstreetmap.org"
+
     # Uber H3 Spatial Indexing
     # Resolution 8 (~0.74 km² area, ~461m hexagon edge) provides optimal urban & corridor grouping
     H3_DEFAULT_RESOLUTION: int = 8

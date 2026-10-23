@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { Search, Zap, Layers, RefreshCw, Filter, ShieldCheck, X } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Search, Zap, Layers, RefreshCw, Filter, X, MapPin } from "lucide-react";
 
 export default function FilterBar({
   searchQuery,
@@ -21,7 +21,13 @@ export default function FilterBar({
   filteredCount = 0,
   isLoading = false,
   onRefresh,
+  onSelectPlace,
 }) {
+  const [placeSuggestions, setPlaceSuggestions] = useState([]);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchTimeoutRef = useRef(null);
+
   const hasActiveFilters = searchQuery || selectedOperator || selectedConnector || minPower > 0;
 
   const resetFilters = () => {
@@ -29,6 +35,51 @@ export default function FilterBar({
     setSelectedOperator("");
     setSelectedConnector("");
     setMinPower(0);
+    setPlaceSuggestions([]);
+    setShowDropdown(false);
+  };
+
+  // OpenStreetMap Nominatim Geocoding Autocomplete
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setPlaceSuggestions([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(async () => {
+      try {
+        setIsSearchingPlaces(true);
+        const res = await fetch(
+          `http://127.0.0.1:8000/api/v1/geo/search?q=${encodeURIComponent(searchQuery)}&limit=4`
+        );
+        if (res.ok) {
+          const places = await res.json();
+          setPlaceSuggestions(places || []);
+          if (places.length > 0) setShowDropdown(true);
+        }
+      } catch (err) {
+        // Silently handle geocoding timeout
+      } finally {
+        setIsSearchingPlaces(false);
+      }
+    }, 350);
+
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [searchQuery]);
+
+  const handleSelectPlace = (place) => {
+    setSearchQuery(place.name || place.display_name.split(",")[0]);
+    setShowDropdown(false);
+    if (onSelectPlace && place.longitude && place.latitude) {
+      onSelectPlace(place.longitude, place.latitude);
+    }
   };
 
   return (
@@ -42,23 +93,47 @@ export default function FilterBar({
           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-brand-500/20 text-brand-300">Phase 2</span>
         </div>
 
-        {/* Search input */}
+        {/* Search input with OpenStreetMap Autocomplete */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by city, station name, or address..."
+            onFocus={() => placeSuggestions.length > 0 && setShowDropdown(true)}
+            placeholder="Search city, station, or address (OpenStreetMap Nominatim)..."
             className="w-full pl-9 pr-8 py-2 bg-dark-900 border border-gray-700 rounded-lg text-sm text-gray-100 placeholder-gray-400 focus:outline-none focus:border-brand-500 transition-colors"
           />
           {searchQuery && (
             <button
-              onClick={() => setSearchQuery("")}
+              onClick={() => {
+                setSearchQuery("");
+                setShowDropdown(false);
+              }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
             >
               <X className="w-3.5 h-3.5" />
             </button>
+          )}
+
+          {/* OpenStreetMap Place Suggestions Dropdown */}
+          {showDropdown && placeSuggestions.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-dark-900/95 backdrop-blur-xl border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden text-xs">
+              <div className="px-3 py-1.5 bg-dark-800/80 text-[10px] font-semibold text-gray-400 border-b border-gray-800 flex items-center justify-between">
+                <span>OpenStreetMap Places</span>
+                <span className="font-mono text-brand-400">Click to Fly</span>
+              </div>
+              {placeSuggestions.map((place, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => handleSelectPlace(place)}
+                  className="w-full px-3 py-2 text-left hover:bg-gray-800/80 flex items-center gap-2.5 text-gray-200 border-b border-gray-800/40 last:border-0 transition-colors"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-brand-400 shrink-0" />
+                  <span className="truncate">{place.display_name}</span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
 

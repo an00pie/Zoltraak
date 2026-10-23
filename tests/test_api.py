@@ -130,3 +130,18 @@ class TestAPI:
         assert len(feature["geometry"]["coordinates"][0]) >= 7  # closed hexagon ring
         assert "station_count" in feature["properties"]
         assert feature["properties"]["station_count"] >= 1
+
+    def test_geo_search_endpoint(self, client):
+        resp = client.get("/api/v1/geo/search?q=Bengaluru")
+        assert resp.status_code == 200
+        results = resp.json()
+        assert isinstance(results, list)
+        assert len(results) >= 1
+        assert "latitude" in results[0]
+        assert "longitude" in results[0]
+
+    def test_geo_reverse_endpoint(self, client):
+        resp = client.get("/api/v1/geo/reverse?latitude=12.9716&longitude=77.5946")
+        assert resp.status_code == 200
+        result = resp.json()
+        assert "display_name" in result

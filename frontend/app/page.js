@@ -177,6 +177,7 @@ export default function Home() {
           filteredCount={filteredStations.length}
           isLoading={isLoading}
           onRefresh={handleRefresh}
+          onSelectPlace={(lng, lat) => setFocusCoordinate([lng, lat])}
         />
       </div>
 

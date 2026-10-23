@@ -1,10 +1,45 @@
 "use client";
 
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
+import { Map as MapIcon } from "lucide-react";
 
-// Dark modern vector map style (Free, zero-token CartoDB Dark Matter)
-const MAP_STYLE_DARK = "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+export const MAP_STYLES = [
+  {
+    id: "dark",
+    label: "Dark Matter",
+    url: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  },
+  {
+    id: "osm",
+    label: "OpenStreetMap",
+    url: {
+      version: 8,
+      sources: {
+        "osm-tiles": {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors",
+        },
+      },
+      layers: [
+        {
+          id: "osm-tiles-layer",
+          type: "raster",
+          source: "osm-tiles",
+          minzoom: 0,
+          maxzoom: 19,
+        },
+      ],
+    },
+  },
+  {
+    id: "light",
+    label: "OSM Positron",
+    url: "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json",
+  },
+];
 
 export default function MapView({
   stations = [],
@@ -16,31 +51,16 @@ export default function MapView({
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
-  const popupRef = useRef(null);
+  const [currentStyle, setCurrentStyle] = useState("dark");
 
-  // Initialize MapLibre GL map
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    const map = new maplibregl.Map({
-      container: mapContainerRef.current,
-      style: MAP_STYLE_DARK,
-      center: [78.9629, 20.5937], // Centered over India
-      zoom: 4.8,
-      attributionControl: true,
-    });
-
-    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
-    map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
-
-    map.on("load", () => {
-      // 1. Add H3 Hexagon Grid Source & Layers
+  const addLayersToMap = (map) => {
+    // 1. Add H3 Hexagon Grid Source & Layers
+    if (!map.getSource("h3-grid-source")) {
       map.addSource("h3-grid-source", {
         type: "geojson",
         data: h3GeoJson || { type: "FeatureCollection", features: [] },
       });
 
-      // H3 Hexagon Fill
       map.addLayer({
         id: "h3-hexagons-fill",
         type: "fill",
@@ -61,7 +81,6 @@ export default function MapView({
         },
       });
 
-      // H3 Hexagon Outlines
       map.addLayer({
         id: "h3-hexagons-line",
         type: "line",
@@ -75,14 +94,15 @@ export default function MapView({
           "line-opacity": 0.8,
         },
       });
+    }
 
-      // 2. Add Charging Stations Source & Layers
+    // 2. Add Charging Stations Source & Layers
+    if (!map.getSource("stations-source")) {
       map.addSource("stations-source", {
         type: "geojson",
         data: convertStationsToGeoJson(stations),
       });
 
-      // Stations Glow / Halo
       map.addLayer({
         id: "stations-halo",
         type: "circle",
@@ -95,7 +115,6 @@ export default function MapView({
         },
       });
 
-      // Stations Core Circle
       map.addLayer({
         id: "stations-circles",
         type: "circle",
@@ -105,19 +124,40 @@ export default function MapView({
           "circle-color": [
             "case",
             ["==", ["get", "is_operational"], false],
-            "#f59e0b", // Amber for unavailable/offline
-            "#10b981", // Emerald green for operational
+            "#f59e0b",
+            "#10b981",
           ],
           "circle-stroke-width": 2,
           "circle-stroke-color": "#ffffff",
         },
       });
+    }
+  };
+
+  // Initialize MapLibre GL map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapRef.current) return;
+
+    const initialStyleObj = MAP_STYLES.find((s) => s.id === currentStyle) || MAP_STYLES[0];
+
+    const map = new maplibregl.Map({
+      container: mapContainerRef.current,
+      style: initialStyleObj.url,
+      center: [78.9629, 20.5937],
+      zoom: 4.8,
+      attributionControl: true,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "bottom-right");
+    map.addControl(new maplibregl.ScaleControl({ unit: "metric" }), "bottom-left");
+
+    map.on("load", () => {
+      addLayersToMap(map);
 
       // Station Click Listener
       map.on("click", "stations-circles", (e) => {
         if (!e.features || !e.features.length) return;
-        const feature = e.features[0];
-        const stationId = feature.properties.id;
+        const stationId = e.features[0].properties.id;
         const matched = stations.find((s) => s.id === stationId);
         if (matched) {
           onSelectStation(matched);
@@ -142,7 +182,7 @@ export default function MapView({
           .addTo(map);
       });
 
-      // Cursor Pointers
+      // Pointer Cursors
       map.on("mouseenter", "stations-circles", () => {
         map.getCanvas().style.cursor = "pointer";
       });
@@ -166,6 +206,20 @@ export default function MapView({
       }
     };
   }, []);
+
+  // Handle Style Changes
+  const handleStyleChange = (newStyleId) => {
+    if (!mapRef.current || newStyleId === currentStyle) return;
+    const target = MAP_STYLES.find((s) => s.id === newStyleId);
+    if (!target) return;
+
+    setCurrentStyle(newStyleId);
+    mapRef.current.setStyle(target.url);
+
+    mapRef.current.once("style.load", () => {
+      addLayersToMap(mapRef.current);
+    });
+  };
 
   // Update Stations Source Data
   useEffect(() => {
@@ -212,6 +266,27 @@ export default function MapView({
   return (
     <div className="relative w-full h-full">
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+
+      {/* Map Style Switcher (Bottom-Left) */}
+      <div className="absolute bottom-6 left-4 z-20 bg-dark-800/90 backdrop-blur-md border border-gray-700/70 rounded-xl p-1 shadow-xl flex items-center gap-1 text-xs">
+        <div className="px-2 py-1 text-gray-400 flex items-center gap-1 font-medium">
+          <MapIcon className="w-3.5 h-3.5" />
+          <span>Style:</span>
+        </div>
+        {MAP_STYLES.map((style) => (
+          <button
+            key={style.id}
+            onClick={() => handleStyleChange(style.id)}
+            className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
+              currentStyle === style.id
+                ? "bg-brand-500 text-dark-900 font-bold shadow-sm"
+                : "text-gray-300 hover:text-gray-100 hover:bg-gray-700/50"
+            }`}
+          >
+            {style.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
