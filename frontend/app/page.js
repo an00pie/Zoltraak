@@ -3,14 +3,36 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MapView from "@/components/MapView";
 import FilterBar from "@/components/FilterBar";
-import RoutePlannerPanel, { EV_PRESETS } from "@/components/RoutePlannerPanel";
+import RoutePlannerPanel from "@/components/RoutePlannerPanel";
 import StationDetailsDrawer from "@/components/StationDetailsDrawer";
 import StatusIndicator from "@/components/StatusIndicator";
 import ListHomeChargerModal from "@/components/ListHomeChargerModal";
+import VehicleSelectorModal from "@/components/VehicleSelectorModal";
+import ProfileDrawer from "@/components/ProfileDrawer";
+import LandingPage from "@/components/LandingPage";
+import TopNavHeader from "@/components/TopNavHeader";
+import MobileSearchBar from "@/components/MobileSearchBar";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import MobileStationCard from "@/components/MobileStationCard";
+import SessionsModal from "@/components/SessionsModal";
+import NotificationsModal from "@/components/NotificationsModal";
+import { DEFAULT_VEHICLE } from "@/data/vehicles";
+import { QrCode, Crosshair, SlidersHorizontal } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function Home() {
+  // Navigation & View Mode: 'map' | 'home'
+  const [currentView, setCurrentView] = useState("map");
+  const [mobileNavTab, setMobileNavTab] = useState("map");
+
+  // Vehicle Onboarding & Garage Profile
+  const [selectedEv, setSelectedEv] = useState(DEFAULT_VEHICLE);
+  const [isVehicleSelectorOpen, setIsVehicleSelectorOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSessionsOpen, setIsSessionsOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
   // Station Data & Metadata
   const [stations, setStations] = useState([]);
   const [communityChargers, setCommunityChargers] = useState([]);
@@ -30,9 +52,12 @@ export default function Home() {
   const [selectedOperator, setSelectedOperator] = useState("");
   const [selectedConnector, setSelectedConnector] = useState("");
   const [minPower, setMinPower] = useState(0);
-  const [showH3Overlay, setShowH3Overlay] = useState(false); // Default off so route is clear
+  const [showH3Overlay, setShowH3Overlay] = useState(false);
   const [selectedStation, setSelectedStation] = useState(null);
+  const [activeMobileStation, setActiveMobileStation] = useState(null);
   const [focusCoordinate, setFocusCoordinate] = useState(null);
+  const [activeFilterChip, setActiveFilterChip] = useState("available"); // 'available' | 'all' | 'community'
+  const [showDesktopFilters, setShowDesktopFilters] = useState(false);
 
   // Viewport Spatial Search & Dynamic H3 Hierarchy
   const [viewportCenter, setViewportCenter] = useState({ latitude: 10.307, longitude: 76.333 });
@@ -40,7 +65,7 @@ export default function Home() {
   const [viewportBounds, setViewportBounds] = useState(null);
   const [viewportNearbyStations, setViewportNearbyStations] = useState([]);
   const [isFetchingNearby, setIsFetchingNearby] = useState(false);
-  const [nearbySortBy, setNearbySortBy] = useState("distance"); // 'distance' | 'power' | 'name'
+  const [nearbySortBy, setNearbySortBy] = useState("distance");
   const [nearbyRadiusKm, setNearbyRadiusKm] = useState(30);
   const [activePlannerTab, setActivePlannerTab] = useState("planner");
   const viewportDebounceRef = useRef(null);
@@ -50,26 +75,48 @@ export default function Home() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Phase 3 — Road Routing & EV States
-  const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(true);
+  // Road Routing & EV States
+  const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(false);
   const [presetCities, setPresetCities] = useState([]);
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
   const [batterySoC, setBatterySoC] = useState(35);
-  const [selectedEv, setSelectedEv] = useState(EV_PRESETS[0]);
   const [minReserveSoC, setMinReserveSoC] = useState(15);
   const [isRouting, setIsRouting] = useState(false);
   const [routeData, setRouteData] = useState(null);
   const [selectedStationStop, setSelectedStationStop] = useState(null);
 
-  // Fetch Preset Cities for A to B dropdowns
+  // Check saved vehicle or trigger onboarding on first visit
+  useEffect(() => {
+    try {
+      const savedVehicle = localStorage.getItem("zoltraak_user_ev");
+      const hasOnboarded = localStorage.getItem("zoltraak_has_onboarded");
+      if (savedVehicle) {
+        setSelectedEv(JSON.parse(savedVehicle));
+      }
+      if (!hasOnboarded) {
+        setIsVehicleSelectorOpen(true);
+      }
+    } catch (e) {
+      console.warn("Storage reading error:", e);
+    }
+  }, []);
+
+  const handleVehicleSelect = (vehicle) => {
+    setSelectedEv(vehicle);
+    try {
+      localStorage.setItem("zoltraak_user_ev", JSON.stringify(vehicle));
+      localStorage.setItem("zoltraak_has_onboarded", "true");
+    } catch (e) {}
+  };
+
+  // Fetch Preset Cities
   const fetchPresetCities = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/routing/preset-cities`);
       if (res.ok) {
         const cities = await res.json();
         setPresetCities(cities);
-        // Default to popular Kerala EV corridor: Kochi to Thrissur
         if (cities.length >= 3) {
           setOrigin(cities[0]); // Kochi
           setDestination(cities[2]); // Thrissur
@@ -145,7 +192,7 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch Dynamic H3 Hexagon Grid GeoJSON (with zoom-based subdivision & viewport bounding)
+  // Fetch Dynamic H3 Grid
   const fetchH3Grid = useCallback(
     async (zoom = null, bounds = null) => {
       try {
@@ -178,7 +225,7 @@ export default function Home() {
     [selectedOperator, selectedConnector, minPower]
   );
 
-  // Fetch nearby stations around the current visible map viewport center
+  // Fetch nearby stations around visible viewport center
   const fetchNearbyStations = useCallback(
     async (lat, lng, radius = nearbyRadiusKm, sortBy = nearbySortBy) => {
       if (!lat || !lng) return;
@@ -197,7 +244,12 @@ export default function Home() {
         const res = await fetch(`${API_BASE_URL}/api/v1/stations/nearby?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
-          setViewportNearbyStations(data.items || []);
+          const items = data.items || [];
+          setViewportNearbyStations(items);
+          // Pre-populate mobile card if empty
+          if (!activeMobileStation && items.length > 0) {
+            setActiveMobileStation(items[0]);
+          }
         }
       } catch (err) {
         console.warn("Failed to fetch nearby stations:", err);
@@ -205,10 +257,10 @@ export default function Home() {
         setIsFetchingNearby(false);
       }
     },
-    [nearbyRadiusKm, nearbySortBy, selectedConnector, minPower]
+    [nearbyRadiusKm, nearbySortBy, selectedConnector, minPower, activeMobileStation]
   );
 
-  // Viewport change listener triggered on map pan/zoom
+  // Viewport change listener
   const handleViewportChange = useCallback(
     ({ latitude, longitude, zoom, bounds }) => {
       setViewportCenter({ latitude, longitude });
@@ -220,25 +272,21 @@ export default function Home() {
       }
 
       viewportDebounceRef.current = setTimeout(() => {
-        // If H3 overlay is visible, fetch subdivided / aggregated hexagons
         if (showH3Overlay) {
           fetchH3Grid(zoom, bounds);
         }
-        // Fetch nearby stations for current visible center
         fetchNearbyStations(latitude, longitude, nearbyRadiusKm, nearbySortBy);
       }, 250);
     },
     [showH3Overlay, fetchH3Grid, fetchNearbyStations, nearbyRadiusKm, nearbySortBy]
   );
 
-  // When H3 overlay toggle changes, fetch grid if enabled
   useEffect(() => {
     if (showH3Overlay) {
       fetchH3Grid(viewportZoom, viewportBounds);
     }
   }, [showH3Overlay, viewportZoom, viewportBounds, fetchH3Grid]);
 
-  // When sorting or search radius changes, immediately refresh nearby stations
   useEffect(() => {
     if (viewportCenter) {
       fetchNearbyStations(viewportCenter.latitude, viewportCenter.longitude, nearbyRadiusKm, nearbySortBy);
@@ -255,7 +303,7 @@ export default function Home() {
     fetchNearbyStations(viewportCenter.latitude, viewportCenter.longitude, nearbyRadiusKm, nearbySortBy);
   }, [fetchPresetCities, fetchMetadata, fetchStations, fetchCommunityChargers, fetchH3Grid, fetchNearbyStations]);
 
-  // Phase 3: Calculate OSRM Route & Corridor Candidate Stations
+  // Calculate OSRM Route
   const handleCalculateRoute = async (stationOverride = null) => {
     if (!origin || !destination) return;
     setIsRouting(true);
@@ -280,7 +328,7 @@ export default function Home() {
           longitude: destination.longitude,
         },
         current_soc: batterySoC,
-        battery_capacity_kwh: selectedEv.capacityKwh,
+        battery_capacity_kwh: selectedEv?.capacityKwh || 32.6,
         min_reserve_soc: minReserveSoC,
         selected_station_id: targetStationId,
         auto_select_optimal: !isExplicitClear,
@@ -297,19 +345,19 @@ export default function Home() {
       const data = await res.json();
       setRouteData(data);
 
-      // Auto-sync selectedStationStop from optimal route selection
       if (data.routed_via_station) {
         const matched = data.candidate_stations?.find(
           (c) => c.id === data.routed_via_station.station_id
         );
-        setSelectedStationStop(
+        const st =
           matched || {
             id: data.routed_via_station.station_id,
             name: data.routed_via_station.station_name,
             latitude: data.routed_via_station.station_latitude,
             longitude: data.routed_via_station.station_longitude,
-          }
-        );
+          };
+        setSelectedStationStop(st);
+        setActiveMobileStation(st);
       } else {
         setSelectedStationStop(null);
       }
@@ -320,48 +368,53 @@ export default function Home() {
     }
   };
 
-  // Automatically calculate route when default origin/destination load
   useEffect(() => {
     if (origin && destination && !routeData) {
       handleCalculateRoute();
     }
   }, [origin, destination]);
 
-  // Add / Select intermediate charging stop (user preference)
   const handleSelectStationStop = (station) => {
     setSelectedStationStop(station);
+    setActiveMobileStation(station);
     handleCalculateRoute(station);
   };
 
-  // Remove intermediate charging stop (switch to direct route)
   const handleClearStationStop = () => {
     setSelectedStationStop(null);
     handleCalculateRoute({ id: -1 });
   };
 
-  // Clear active route and switch cleanly to non-routing viewport exploration mode
   const handleClearRoute = () => {
     setRouteData(null);
     setSelectedStationStop(null);
     setActivePlannerTab("nearby");
   };
 
-  // Client-side text search filter
+  // Filter stations based on search query & active chips
   const filteredStations = useMemo(() => {
-    if (!searchQuery.trim()) return stations;
+    let result = stations;
+
+    // Filter by availability chip
+    if (activeFilterChip === "available") {
+      result = result.filter(
+        (st) => !st.status || st.status.toLowerCase().includes("operational") || st.is_available !== false
+      );
+    }
+
+    if (!searchQuery.trim()) return result;
     const q = searchQuery.toLowerCase().trim();
 
-    return stations.filter((st) => {
+    return result.filter((st) => {
       const nameMatch = (st.name || "").toLowerCase().includes(q);
       const addressMatch = (st.address || "").toLowerCase().includes(q);
       const cityMatch = (st.city || "").toLowerCase().includes(q);
       const opMatch = (st.operator_name || "").toLowerCase().includes(q);
-      const h3Match = (st.h3_cell || "").toLowerCase().includes(q);
-      return nameMatch || addressMatch || cityMatch || opMatch || h3Match;
+      return nameMatch || addressMatch || cityMatch || opMatch;
     });
-  }, [stations, searchQuery]);
+  }, [stations, searchQuery, activeFilterChip]);
 
-  // Active route coordinates (either routed via charging station, or direct)
+  // Active route coordinates
   const activeRouteCoordinates = useMemo(() => {
     if (!routeData) return null;
     if (routeData.routed_via_station?.coordinates) {
@@ -370,100 +423,299 @@ export default function Home() {
     return routeData.direct_route?.coordinates || null;
   }, [routeData]);
 
+  // Handle Bottom Nav switching
+  const handleMobileNavTabChange = (tabId) => {
+    setMobileNavTab(tabId);
+    if (tabId === "map") {
+      setCurrentView("map");
+    } else if (tabId === "profile") {
+      setIsProfileOpen(true);
+    } else if (tabId === "sessions") {
+      setIsSessionsOpen(true);
+    } else if (tabId === "notifications") {
+      setIsNotificationsOpen(true);
+    }
+  };
+
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-zinc-950 font-sans">
-      {/* 1. Full-screen Interactive MapLibre GL Map */}
-      <MapView
-        stations={filteredStations}
-        candidateStations={routeData?.candidate_stations || []}
-        routeCoordinates={activeRouteCoordinates}
-        routeData={routeData}
-        originLocation={origin}
-        destLocation={destination}
-        h3GeoJson={h3GeoJson}
-        showH3Overlay={showH3Overlay}
-        setShowH3Overlay={setShowH3Overlay}
-        selectedStation={selectedStation}
-        onSelectStation={(st) => setSelectedStation(st)}
-        onRouteViaStation={(st) => handleSelectStationStop(st)}
-        focusCoordinate={focusCoordinate}
-        onViewportChange={handleViewportChange}
-        h3Resolution={h3Resolution}
-        showCenterReticle={!routeData}
-        communityChargers={communityChargers}
-        showCommunityChargers={showCommunityChargers}
-        setShowCommunityChargers={setShowCommunityChargers}
+    <main className="relative w-screen h-screen overflow-hidden bg-zinc-950 font-sans select-none">
+      {/* Top Header matching Image 4: [ Home NEW | Map View ] */}
+      <TopNavHeader
+        currentView={currentView}
+        onViewChange={(v) => {
+          setCurrentView(v);
+          if (v === "map") setMobileNavTab("map");
+        }}
+        selectedVehicle={selectedEv}
+        onChangeVehicleClick={() => setIsVehicleSelectorOpen(true)}
+        onOpenProfile={() => setIsProfileOpen(true)}
       />
 
-      {/* 2. Left Route & Battery Planner Sidebar */}
-      <RoutePlannerPanel
-        origin={origin}
-        setOrigin={setOrigin}
-        destination={destination}
-        setDestination={setDestination}
-        presetCities={presetCities}
+      {/* VIEW 1: LANDING PAGE */}
+      {currentView === "home" ? (
+        <div className="w-full h-full pt-14 overflow-y-auto">
+          <LandingPage
+            onOpenMap={() => {
+              setCurrentView("map");
+              setMobileNavTab("map");
+            }}
+            selectedVehicle={selectedEv}
+            onChangeVehicleClick={() => setIsVehicleSelectorOpen(true)}
+            batterySoC={batterySoC}
+            totalStations={metadata.total_stations}
+            totalCommunityChargers={communityChargers.length}
+            onOpenListHomeChargerModal={() => setIsListHomeChargerOpen(true)}
+            onSelectCorridor={(orig, dest) => {
+              setOrigin(orig);
+              setDestination(dest);
+              handleCalculateRoute();
+            }}
+            onSearchPlace={(q) => {
+              setSearchQuery(q);
+            }}
+          />
+        </div>
+      ) : (
+        /* VIEW 2: INTERACTIVE MAP VIEW */
+        <div className="relative w-full h-full">
+          {/* 1. MapLibre GL Map */}
+          <MapView
+            stations={filteredStations}
+            candidateStations={routeData?.candidate_stations || []}
+            routeCoordinates={activeRouteCoordinates}
+            routeData={routeData}
+            originLocation={origin}
+            destLocation={destination}
+            h3GeoJson={h3GeoJson}
+            showH3Overlay={showH3Overlay}
+            setShowH3Overlay={setShowH3Overlay}
+            selectedStation={selectedStation}
+            onSelectStation={(st) => {
+              setSelectedStation(st);
+              setActiveMobileStation(st);
+            }}
+            onRouteViaStation={(st) => handleSelectStationStop(st)}
+            focusCoordinate={focusCoordinate}
+            onViewportChange={handleViewportChange}
+            h3Resolution={h3Resolution}
+            showCenterReticle={!routeData}
+            communityChargers={communityChargers}
+            showCommunityChargers={showCommunityChargers}
+            setShowCommunityChargers={setShowCommunityChargers}
+          />
+
+          {/* 2. Top Search & Filter Bar (Matching Image 4) */}
+          <div className="absolute top-16 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-30 transition-all">
+            <MobileSearchBar
+              searchQuery={searchQuery}
+              setSearchQuery={setSearchQuery}
+              onSelectPlace={(lng, lat) => setFocusCoordinate([lng, lat])}
+              activeFilterChip={activeFilterChip}
+              setActiveFilterChip={setActiveFilterChip}
+              showH3Overlay={showH3Overlay}
+              setShowH3Overlay={setShowH3Overlay}
+              showCommunityChargers={showCommunityChargers}
+              setShowCommunityChargers={setShowCommunityChargers}
+              onOpenAdvancedFilters={() => setShowDesktopFilters(!showDesktopFilters)}
+              onLocateMe={() => setFocusCoordinate([76.333, 10.307])}
+              apiBaseUrl={API_BASE_URL}
+            />
+
+            {/* Expandable Advanced Filter Drawer */}
+            {showDesktopFilters && (
+              <div className="mt-2">
+                <FilterBar
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  selectedOperator={selectedOperator}
+                  setSelectedOperator={setSelectedOperator}
+                  selectedConnector={selectedConnector}
+                  setSelectedConnector={setSelectedConnector}
+                  minPower={minPower}
+                  setMinPower={setMinPower}
+                  showH3Overlay={showH3Overlay}
+                  setShowH3Overlay={setShowH3Overlay}
+                  operators={metadata.operators}
+                  connectorTypes={metadata.connector_types}
+                  powerBrackets={metadata.power_brackets}
+                  totalStations={metadata.total_stations}
+                  filteredCount={filteredStations.length}
+                  isLoading={isLoading}
+                  showCommunityChargers={showCommunityChargers}
+                  setShowCommunityChargers={setShowCommunityChargers}
+                  totalCommunityChargers={communityChargers.length}
+                  onOpenListHomeChargerModal={() => setIsListHomeChargerOpen(true)}
+                  onRefresh={() => {
+                    fetchMetadata();
+                    fetchStations();
+                    fetchCommunityChargers();
+                    fetchH3Grid();
+                  }}
+                  onSelectPlace={(lng, lat) => setFocusCoordinate([lng, lat])}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* 3. Floating Map Action Buttons (Matching Image 4) */}
+          <div className="absolute right-4 top-40 z-20 flex flex-col space-y-3 pointer-events-auto">
+            {/* QR Scanner button matching Image 4 */}
+            <button
+              type="button"
+              onClick={() => {
+                alert("EVOK QR Scan: Ready to scan QR code at any Kerala charging station or community wallbox!");
+              }}
+              className="w-11 h-11 rounded-full bg-zinc-900/90 text-white flex items-center justify-center shadow-xl border border-zinc-700/80 hover:bg-black active:scale-95 transition-all"
+              title="Scan Charger QR Code"
+            >
+              <QrCode className="w-5 h-5" />
+            </button>
+
+            {/* Locate Me crosshairs button matching Image 4 */}
+            <button
+              type="button"
+              onClick={() => {
+                setFocusCoordinate([76.3385, 10.3065]);
+              }}
+              className="w-11 h-11 rounded-full bg-white text-zinc-900 flex items-center justify-center shadow-xl border border-zinc-200 hover:bg-zinc-100 active:scale-95 transition-all"
+              title="Center Location"
+            >
+              <Crosshair className="w-5 h-5 text-amber-600" />
+            </button>
+          </div>
+
+          {/* 4. Left Route Planner Panel (Desktop & Highway corridor mode) */}
+          <RoutePlannerPanel
+            origin={origin}
+            setOrigin={setOrigin}
+            destination={destination}
+            setDestination={setDestination}
+            presetCities={presetCities}
+            batterySoC={batterySoC}
+            setBatterySoC={setBatterySoC}
+            selectedEv={selectedEv}
+            setSelectedEv={setSelectedEv}
+            minReserveSoC={minReserveSoC}
+            setMinReserveSoC={setMinReserveSoC}
+            onCalculateRoute={() => handleCalculateRoute()}
+            isRouting={isRouting}
+            routeData={routeData}
+            selectedStationStop={selectedStationStop}
+            onSelectStationStop={handleSelectStationStop}
+            onClearStationStop={handleClearStationStop}
+            onFocusCoordinate={(lng, lat) => setFocusCoordinate([lng, lat])}
+            isOpen={isRoutePlannerOpen}
+            setIsOpen={setIsRoutePlannerOpen}
+            viewportNearbyStations={viewportNearbyStations}
+            viewportCenter={viewportCenter}
+            isFetchingNearby={isFetchingNearby}
+            nearbySortBy={nearbySortBy}
+            setNearbySortBy={setNearbySortBy}
+            nearbyRadiusKm={nearbyRadiusKm}
+            setNearbyRadiusKm={setNearbyRadiusKm}
+            onClearRoute={handleClearRoute}
+            activeTab={activePlannerTab}
+            setActiveTab={setActivePlannerTab}
+          />
+
+          {/* 5. Floating Bottom Station Preview Card (Matching Image 4) */}
+          {activeMobileStation && !selectedStation && (
+            <div className="absolute bottom-20 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-20 flex justify-center">
+              <MobileStationCard
+                station={activeMobileStation}
+                onGetDirection={(st) => handleSelectStationStop(st)}
+                onChargeNow={(st) => setSelectedStation(st)}
+                onClose={() => setActiveMobileStation(null)}
+              />
+            </div>
+          )}
+
+          {/* 6. Full Station Details Drawer (when user taps for full info) */}
+          {selectedStation && (
+            <StationDetailsDrawer
+              station={selectedStation}
+              onClose={() => setSelectedStation(null)}
+              onFocus={(lng, lat) => setFocusCoordinate([lng, lat])}
+              onRouteViaStation={(st) => handleSelectStationStop(st)}
+              onClearStationStop={handleClearStationStop}
+              isSelectedStop={
+                selectedStationStop?.id === selectedStation.id ||
+                routeData?.routed_via_station?.station_id === selectedStation.id
+              }
+            />
+          )}
+
+          {/* 7. Mobile Bottom Navigation Bar (Matching Image 4) */}
+          <MobileBottomNav
+            activeTab={mobileNavTab}
+            onTabChange={handleMobileNavTabChange}
+            unreadNotifications={1}
+          />
+        </div>
+      )}
+
+      {/* 8. Vehicle Onboarding & Selector Modal (Step 1 -> 2 -> 3 from Images 1, 2, 3) */}
+      <VehicleSelectorModal
+        isOpen={isVehicleSelectorOpen}
+        onClose={() => setIsVehicleSelectorOpen(false)}
+        onSelectVehicle={handleVehicleSelect}
+        currentVehicle={selectedEv}
+        canDismiss={true}
+      />
+
+      {/* 9. Profile & My Garage Drawer */}
+      <ProfileDrawer
+        isOpen={isProfileOpen}
+        onClose={() => {
+          setIsProfileOpen(false);
+          setMobileNavTab("map");
+        }}
+        selectedVehicle={selectedEv}
+        onChangeVehicleClick={() => {
+          setIsProfileOpen(false);
+          setIsVehicleSelectorOpen(true);
+        }}
         batterySoC={batterySoC}
         setBatterySoC={setBatterySoC}
-        selectedEv={selectedEv}
-        setSelectedEv={setSelectedEv}
         minReserveSoC={minReserveSoC}
         setMinReserveSoC={setMinReserveSoC}
-        onCalculateRoute={() => handleCalculateRoute()}
-        isRouting={isRouting}
-        routeData={routeData}
-        selectedStationStop={selectedStationStop}
-        onSelectStationStop={handleSelectStationStop}
-        onClearStationStop={handleClearStationStop}
-        onFocusCoordinate={(lng, lat) => setFocusCoordinate([lng, lat])}
-        isOpen={isRoutePlannerOpen}
-        setIsOpen={setIsRoutePlannerOpen}
-        // Viewport exploration & nearby search props
-        viewportNearbyStations={viewportNearbyStations}
-        viewportCenter={viewportCenter}
-        isFetchingNearby={isFetchingNearby}
-        nearbySortBy={nearbySortBy}
-        setNearbySortBy={setNearbySortBy}
-        nearbyRadiusKm={nearbyRadiusKm}
-        setNearbyRadiusKm={setNearbyRadiusKm}
-        onClearRoute={handleClearRoute}
-        activeTab={activePlannerTab}
-        setActiveTab={setActivePlannerTab}
+        onOpenListHomeChargerModal={() => setIsListHomeChargerOpen(true)}
       />
 
-      {/* 3. Top Navigation & Floating Filter Bar */}
-      <div className="absolute top-4 right-4 left-4 md:left-[448px] md:right-4 z-20 transition-all">
-        <FilterBar
-          searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
-          selectedOperator={selectedOperator}
-          setSelectedOperator={setSelectedOperator}
-          selectedConnector={selectedConnector}
-          setSelectedConnector={setSelectedConnector}
-          minPower={minPower}
-          setMinPower={setMinPower}
-          showH3Overlay={showH3Overlay}
-          setShowH3Overlay={setShowH3Overlay}
-          operators={metadata.operators}
-          connectorTypes={metadata.connector_types}
-          powerBrackets={metadata.power_brackets}
-          totalStations={metadata.total_stations}
-          filteredCount={filteredStations.length}
-          isLoading={isLoading}
-          showCommunityChargers={showCommunityChargers}
-          setShowCommunityChargers={setShowCommunityChargers}
-          totalCommunityChargers={communityChargers.length}
-          onOpenListHomeChargerModal={() => setIsListHomeChargerOpen(true)}
-          onRefresh={() => {
-            fetchMetadata();
-            fetchStations();
-            fetchCommunityChargers();
-            fetchH3Grid();
-          }}
-          onSelectPlace={(lng, lat) => setFocusCoordinate([lng, lat])}
-        />
-      </div>
+      {/* 10. Sessions Modal */}
+      <SessionsModal
+        isOpen={isSessionsOpen}
+        onClose={() => {
+          setIsSessionsOpen(false);
+          setMobileNavTab("map");
+        }}
+        selectedVehicle={selectedEv}
+      />
 
-      {/* 4. Status, Connectivity, and Empty/Error Indicators */}
+      {/* 11. Notifications Modal */}
+      <NotificationsModal
+        isOpen={isNotificationsOpen}
+        onClose={() => {
+          setIsNotificationsOpen(false);
+          setMobileNavTab("map");
+        }}
+      />
+
+      {/* 12. List Community Home Charger Modal */}
+      <ListHomeChargerModal
+        isOpen={isListHomeChargerOpen}
+        onClose={() => setIsListHomeChargerOpen(false)}
+        mapCenter={viewportCenter}
+        apiBaseUrl={API_BASE_URL}
+        onChargerCreated={(newCharger) => {
+          setCommunityChargers((prev) => [newCharger, ...prev]);
+          if (newCharger.longitude && newCharger.latitude) {
+            setFocusCoordinate([Number(newCharger.longitude), Number(newCharger.latitude)]);
+          }
+        }}
+      />
+
+      {/* 13. System Status Indicator */}
       <StatusIndicator
         backendOnline={backendOnline}
         errorMessage={errorMessage}
@@ -475,35 +727,6 @@ export default function Home() {
           fetchStations();
           fetchCommunityChargers();
           fetchH3Grid();
-        }}
-      />
-
-      {/* 5. Slide-in Station Details Drawer */}
-      {selectedStation && (
-        <StationDetailsDrawer
-          station={selectedStation}
-          onClose={() => setSelectedStation(null)}
-          onFocus={(lng, lat) => setFocusCoordinate([lng, lat])}
-          onRouteViaStation={(st) => handleSelectStationStop(st)}
-          onClearStationStop={handleClearStationStop}
-          isSelectedStop={
-            selectedStationStop?.id === selectedStation.id ||
-            routeData?.routed_via_station?.station_id === selectedStation.id
-          }
-        />
-      )}
-
-      {/* 6. List Community Home Charger Modal */}
-      <ListHomeChargerModal
-        isOpen={isListHomeChargerOpen}
-        onClose={() => setIsListHomeChargerOpen(false)}
-        mapCenter={viewportCenter}
-        apiBaseUrl={API_BASE_URL}
-        onChargerCreated={(newCharger) => {
-          setCommunityChargers((prev) => [newCharger, ...prev]);
-          if (newCharger.longitude && newCharger.latitude) {
-            setFocusCoordinate([Number(newCharger.longitude), Number(newCharger.latitude)]);
-          }
         }}
       />
     </main>
