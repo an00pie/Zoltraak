@@ -77,6 +77,9 @@ export default function MapView({
   onSelectStation,
   onRouteViaStation,
   focusCoordinate = null,
+  onViewportChange = null,
+  h3Resolution = null,
+  showCenterReticle = true,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -84,6 +87,11 @@ export default function MapView({
   const originMarkerRef = useRef(null);
   const destMarkerRef = useRef(null);
   const stationStopMarkerRef = useRef(null);
+  const onViewportChangeRef = useRef(onViewportChange);
+
+  useEffect(() => {
+    onViewportChangeRef.current = onViewportChange;
+  }, [onViewportChange]);
 
   const [currentStyle, setCurrentStyle] = useState("dark");
   const [clusteringEnabled, setClusteringEnabled] = useState(true);
@@ -631,7 +639,31 @@ export default function MapView({
       map.on("mouseenter", "station-clusters", () => { map.getCanvas().style.cursor = "pointer"; });
       map.on("mouseleave", "station-clusters", () => { map.getCanvas().style.cursor = ""; });
       map.on("mouseenter", "h3-hexagons-fill", () => { map.getCanvas().style.cursor = "pointer"; });
-      map.on("mouseleave", "h3-hexagons-fill", () => { map.getCanvas().style.cursor = ""; });
+      // Viewport movement & zoom change listener
+      const handleMoveEnd = () => {
+        if (!map) return;
+        const center = map.getCenter();
+        const zoom = map.getZoom();
+        const bounds = map.getBounds();
+        if (onViewportChangeRef.current) {
+          onViewportChangeRef.current({
+            latitude: center.lat,
+            longitude: center.lng,
+            zoom: zoom,
+            bounds: {
+              min_lat: bounds.getSouth(),
+              max_lat: bounds.getNorth(),
+              min_lng: bounds.getWest(),
+              max_lng: bounds.getEast(),
+            },
+          });
+        }
+      };
+
+      map.on("moveend", handleMoveEnd);
+
+      // Trigger initial viewport notification once loaded
+      handleMoveEnd();
 
       mapRef.current = map;
     });
@@ -800,6 +832,50 @@ export default function MapView({
     <div className="relative w-full h-full">
       {/* MapLibre WebGL Canvas Container */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+
+      {/* Viewport Center Crosshair Reticle (In Non-Routing Exploration Mode) */}
+      {showCenterReticle && !routeCoordinates && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="relative flex flex-col items-center justify-center -translate-y-2">
+            {/* Center crosshair and pulse */}
+            <div className="relative flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full border border-blue-500/30 bg-blue-500/5 animate-ping opacity-75" />
+              <div className="absolute w-6 h-6 rounded-full border border-blue-400/50" />
+              <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border border-white shadow-md" />
+              <div className="absolute -left-3 w-2 h-[1px] bg-blue-400/70" />
+              <div className="absolute -right-3 w-2 h-[1px] bg-blue-400/70" />
+              <div className="absolute -top-3 h-2 w-[1px] bg-blue-400/70" />
+              <div className="absolute -bottom-3 h-2 w-[1px] bg-blue-400/70" />
+            </div>
+
+            {/* Viewport center pill */}
+            <div className="mt-2 px-2 py-0.5 rounded-full bg-zinc-950/90 border border-zinc-800 text-[10px] text-zinc-300 font-mono shadow-md flex items-center gap-1.5 whitespace-nowrap">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+              <span>Viewport Center</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Uber H3 Dynamic Resolution HUD Badge */}
+      {showH3Overlay && (
+        <div className="absolute top-20 right-4 z-20 pointer-events-none">
+          <div className="bg-zinc-950/90 border border-zinc-800 rounded-lg p-2.5 shadow-lg flex items-center gap-2.5 text-xs pointer-events-auto">
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div>
+              <div className="font-semibold text-zinc-100 flex items-center gap-2">
+                <span>Uber H3 Spatial Grid</span>
+                <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-emerald-400 border border-zinc-700 text-[10px] font-mono">
+                  Res {h3Resolution ?? 8}
+                </span>
+              </div>
+              <p className="text-[10px] text-zinc-400 mt-0.5">
+                Subdivides on zoom-in • Aggregates on zoom-out
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Google Maps GPS Navigation Floating Banner */}
       {activeRouteDetails && (

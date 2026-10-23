@@ -17,6 +17,9 @@ import {
   ChevronUp,
   Check,
   RotateCcw,
+  Crosshair,
+  Locate,
+  Layers,
 } from "lucide-react";
 import LocationAutocomplete from "./LocationAutocomplete";
 
@@ -49,12 +52,26 @@ export default function RoutePlannerPanel({
   onFocusCoordinate,
   isOpen = true,
   setIsOpen,
+  // Viewport exploration & nearby search props
+  viewportNearbyStations = [],
+  viewportCenter = null,
+  isFetchingNearby = false,
+  nearbySortBy = "distance",
+  setNearbySortBy,
+  nearbyRadiusKm = 30,
+  setNearbyRadiusKm,
+  onClearRoute = null,
+  activeTab: activeTabProp,
+  setActiveTab: setActiveTabProp,
 }) {
-  const [activeTab, setActiveTab] = useState("planner"); // 'planner' | 'stations'
+  const [internalTab, setInternalTab] = useState("planner"); // 'planner' | 'stations' | 'nearby'
+  const activeTab = activeTabProp !== undefined ? activeTabProp : internalTab;
+  const setActiveTab = setActiveTabProp || setInternalTab;
+
   const [stationFilterTier, setStationFilterTier] = useState("all"); // 'all' | 'optimal' | 'acceptable' | 'suboptimal'
   const [showEvSettings, setShowEvSettings] = useState(false);
 
-  // Auto-switch to stations tab when route data arrives
+  // Auto-switch to corridor stations tab when route data arrives
   useEffect(() => {
     if (routeData && routeData.candidate_stations?.length > 0) {
       setActiveTab("stations");
@@ -120,7 +137,7 @@ export default function RoutePlannerPanel({
             </button>
           </div>
 
-          {/* Segmented Control Tabs (Trip Setup vs En-Route Chargers) */}
+          {/* Segmented Control Tabs (Trip Setup vs En-Route vs Viewport Nearby) */}
           <div className="p-2 border-b border-zinc-800 bg-zinc-900/30">
             <div className="flex bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-xs">
               <button
@@ -141,10 +158,25 @@ export default function RoutePlannerPanel({
                     : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
-                <span>En-Route Chargers</span>
+                <span>En-Route</span>
                 {candidateStations.length > 0 && (
                   <span className="px-1.5 py-0.2 rounded-full bg-zinc-700 text-zinc-300 text-[10px] font-mono">
                     {candidateStations.length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("nearby")}
+                className={`flex-1 py-1.5 font-medium rounded-md text-center transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "nearby"
+                    ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <span>Nearby</span>
+                {viewportNearbyStations.length > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full bg-blue-900/60 border border-blue-800/60 text-blue-300 text-[10px] font-mono">
+                    {viewportNearbyStations.length}
                   </span>
                 )}
               </button>
@@ -393,6 +425,17 @@ export default function RoutePlannerPanel({
                         </div>
                       </div>
                     )}
+
+                    {onClearRoute && (
+                      <button
+                        type="button"
+                        onClick={onClearRoute}
+                        className="w-full mt-2 py-1.5 px-3 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-zinc-100 rounded-lg text-[11px] font-medium transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <RotateCcw className="w-3 h-3 text-zinc-400" />
+                        <span>Clear Route • Viewport Exploration Mode</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </>
@@ -554,6 +597,200 @@ export default function RoutePlannerPanel({
                     <p className="font-medium text-zinc-200">No Candidate Stations</p>
                     <p className="text-[11px] text-zinc-500">
                       Calculate a route first, or adjust the filter tier above.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Nearby Viewport Stations Tab */}
+            {activeTab === "nearby" && (
+              <div className="space-y-3">
+                {/* Viewport Center Info Box */}
+                <div className="p-3 bg-zinc-900/60 border border-zinc-800 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-zinc-200 flex items-center gap-1.5 text-xs">
+                      <Crosshair className="w-3.5 h-3.5 text-blue-400" />
+                      <span>Viewport Center Focus</span>
+                    </span>
+                    <span className="px-2 py-0.5 rounded bg-blue-950/60 border border-blue-800/60 text-blue-300 font-mono text-[10px]">
+                      {viewportNearbyStations.length} Nearby Stations
+                    </span>
+                  </div>
+
+                  <div className="text-[11px] text-zinc-400 font-mono flex items-center justify-between">
+                    <span>
+                      Lat: {viewportCenter ? Number(viewportCenter.latitude).toFixed(4) : "10.3000"}° N
+                    </span>
+                    <span>
+                      Lng: {viewportCenter ? Number(viewportCenter.longitude).toFixed(4) : "76.3300"}° E
+                    </span>
+                  </div>
+
+                  {/* Search Radius Controls */}
+                  <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
+                    <span className="text-[10px] text-zinc-500 font-medium">Search Radius:</span>
+                    <div className="flex gap-1">
+                      {[15, 30, 50].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setNearbyRadiusKm && setNearbyRadiusKm(r)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
+                            nearbyRadiusKm === r
+                              ? "bg-zinc-800 text-zinc-100 border border-zinc-700 font-semibold"
+                              : "bg-zinc-900 text-zinc-400 hover:text-zinc-200"
+                          }`}
+                        >
+                          {r} km
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Sorting Controls */}
+                <div className="flex items-center justify-between gap-1 p-0.5 bg-zinc-900 rounded-lg border border-zinc-800 text-[11px]">
+                  <span className="text-zinc-500 text-[10px] px-2 font-medium">Sort:</span>
+                  <button
+                    type="button"
+                    onClick={() => setNearbySortBy && setNearbySortBy("distance")}
+                    className={`flex-1 py-1 rounded font-medium transition-colors ${
+                      nearbySortBy === "distance"
+                        ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    Nearest
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNearbySortBy && setNearbySortBy("power")}
+                    className={`flex-1 py-1 rounded font-medium transition-colors flex items-center justify-center gap-1 ${
+                      nearbySortBy === "power"
+                        ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <Zap className="w-3 h-3 text-amber-400" />
+                    <span>Max kW</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNearbySortBy && setNearbySortBy("name")}
+                    className={`flex-1 py-1 rounded font-medium transition-colors ${
+                      nearbySortBy === "name"
+                        ? "bg-zinc-800 text-zinc-100 shadow-sm"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    Name
+                  </button>
+                </div>
+
+                {/* Station Cards */}
+                {isFetchingNearby ? (
+                  <div className="p-8 text-center text-zinc-400 text-xs">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <span>Searching nearby stations...</span>
+                  </div>
+                ) : viewportNearbyStations.length > 0 ? (
+                  <div className="space-y-2">
+                    {viewportNearbyStations.map((st) => (
+                      <div
+                        key={st.id}
+                        className="p-3 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/80 hover:border-zinc-700 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <span className="px-1.5 py-0.2 rounded bg-zinc-800 border border-zinc-700 text-zinc-300 font-mono text-[10px]">
+                                {st.distance_km} km away
+                              </span>
+                              {st.max_power_kw ? (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-950/60 border border-amber-800/60 text-amber-300 font-mono text-[10px] flex items-center gap-0.5">
+                                  <Zap className="w-2.5 h-2.5 text-amber-400" />
+                                  {st.max_power_kw} kW
+                                </span>
+                              ) : (
+                                <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 font-mono text-[10px]">
+                                  Fast Charger
+                                </span>
+                              )}
+                            </div>
+
+                            <h4 className="font-medium text-zinc-100 text-xs line-clamp-1">
+                              {st.name}
+                            </h4>
+                            <p className="text-[10px] text-zinc-400 line-clamp-1">
+                              {st.operator_name || "Independent"} • {st.address || st.city}
+                            </p>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => onFocusCoordinate(st.longitude, st.latitude)}
+                            className="p-1 rounded text-zinc-500 hover:text-zinc-200 transition-colors"
+                            title="Focus on Map"
+                          >
+                            <MapPin className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Connectors */}
+                        {st.connectors && st.connectors.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {st.connectors.map((c, i) => (
+                              <span
+                                key={i}
+                                className="px-1.5 py-0.5 rounded bg-zinc-950 border border-zinc-800 text-[9px] text-zinc-400 font-mono"
+                              >
+                                ⚡ {c.connector_type || "Plug"} {c.power_kw ? `${c.power_kw}kW` : ""}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Quick Actions */}
+                        <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-1 text-[11px]">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOrigin({ name: st.name, latitude: st.latitude, longitude: st.longitude });
+                              setActiveTab("planner");
+                            }}
+                            className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-emerald-400 rounded text-[10px] transition-colors"
+                          >
+                            Set Start (A)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDestination({ name: st.name, latitude: st.latitude, longitude: st.longitude });
+                              setActiveTab("planner");
+                            }}
+                            className="px-2 py-1 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-rose-400 rounded text-[10px] transition-colors"
+                          >
+                            Set End (B)
+                          </button>
+                          {routeData && (
+                            <button
+                              type="button"
+                              onClick={() => onSelectStationStop && onSelectStationStop(st)}
+                              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded text-[10px] font-medium transition-colors"
+                            >
+                              Add Stop
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-6 bg-zinc-900/30 border border-zinc-800 rounded-lg text-center text-zinc-400 space-y-1">
+                    <p className="font-medium text-zinc-200">No Stations Found Nearby</p>
+                    <p className="text-[11px] text-zinc-500">
+                      Try increasing the search radius or pan the map to a different location.
                     </p>
                   </div>
                 )}

@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, Zap, Layers, RefreshCw, Filter, X, MapPin } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 export default function FilterBar({
   searchQuery,
   setSearchQuery,
@@ -55,7 +57,7 @@ export default function FilterBar({
       try {
         setIsSearchingPlaces(true);
         const res = await fetch(
-          `http://127.0.0.1:8000/api/v1/geo/search?q=${encodeURIComponent(searchQuery)}&limit=4`
+          `${API_BASE_URL}/api/v1/geo/search?q=${encodeURIComponent(searchQuery)}&limit=4`
         );
         if (res.ok) {
           const places = await res.json();

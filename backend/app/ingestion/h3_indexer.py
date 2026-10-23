@@ -104,3 +104,48 @@ class H3SpatialIndexer:
         # Returns sequence of (lat, lng) tuples
         boundary = h3.cell_to_boundary(h3_cell)
         return [(float(lat), float(lng)) for lat, lng in boundary]
+
+    @staticmethod
+    def zoom_to_resolution(zoom: float) -> int:
+        """
+        Map a MapLibre/Leaflet zoom level to an appropriate Uber H3 resolution.
+        Enables dynamic subdividing on zoom-in and aggregating on zoom-out:
+          - Zoom < 6.5: Res 5 (regional clusters, ~25 km edge)
+          - Zoom 6.5 - 8.5: Res 6 (district level, ~9 km edge)
+          - Zoom 8.5 - 10.5: Res 7 (metro/city sector, ~3.3 km edge)
+          - Zoom 10.5 - 12.5: Res 8 (neighborhood level, ~1.2 km edge)
+          - Zoom 12.5 - 14.5: Res 9 (corridor/block level, ~460 m edge)
+          - Zoom >= 14.5: Res 10 (street/junction level, ~170 m edge)
+        """
+        if zoom < 6.5:
+            return 5
+        elif zoom < 8.5:
+            return 6
+        elif zoom < 10.5:
+            return 7
+        elif zoom < 12.5:
+            return 8
+        elif zoom < 14.5:
+            return 9
+        else:
+            return 10
+
+    @staticmethod
+    def get_cell_resolution(h3_cell: str) -> int:
+        """Return the resolution level (0-15) of an H3 cell."""
+        if not h3.is_valid_cell(h3_cell):
+            raise ValueError(f"Invalid H3 cell index: {h3_cell}")
+        return h3.get_resolution(h3_cell)
+
+    @staticmethod
+    def get_parent_at_resolution(h3_cell: str, target_res: int) -> str:
+        """
+        Convert an H3 cell to its parent at a coarser resolution, or return as-is
+        if already at or coarser than the target resolution.
+        """
+        if not h3.is_valid_cell(h3_cell):
+            raise ValueError(f"Invalid H3 cell index: {h3_cell}")
+        current_res = h3.get_resolution(h3_cell)
+        if current_res <= target_res:
+            return h3_cell
+        return h3.cell_to_parent(h3_cell, target_res)

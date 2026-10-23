@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import MapView from "@/components/MapView";
 import FilterBar from "@/components/FilterBar";
 import RoutePlannerPanel, { EV_PRESETS } from "@/components/RoutePlannerPanel";
@@ -13,6 +13,7 @@ export default function Home() {
   // Station Data & Metadata
   const [stations, setStations] = useState([]);
   const [h3GeoJson, setH3GeoJson] = useState(null);
+  const [h3Resolution, setH3Resolution] = useState(7);
   const [metadata, setMetadata] = useState({
     total_stations: 0,
     operators: [],
@@ -28,6 +29,17 @@ export default function Home() {
   const [showH3Overlay, setShowH3Overlay] = useState(false); // Default off so route is clear
   const [selectedStation, setSelectedStation] = useState(null);
   const [focusCoordinate, setFocusCoordinate] = useState(null);
+
+  // Viewport Spatial Search & Dynamic H3 Hierarchy
+  const [viewportCenter, setViewportCenter] = useState({ latitude: 10.307, longitude: 76.333 });
+  const [viewportZoom, setViewportZoom] = useState(7.5);
+  const [viewportBounds, setViewportBounds] = useState(null);
+  const [viewportNearbyStations, setViewportNearbyStations] = useState([]);
+  const [isFetchingNearby, setIsFetchingNearby] = useState(false);
+  const [nearbySortBy, setNearbySortBy] = useState("distance"); // 'distance' | 'power' | 'name'
+  const [nearbyRadiusKm, setNearbyRadiusKm] = useState(30);
+  const [activePlannerTab, setActivePlannerTab] = useState("planner");
+  const viewportDebounceRef = useRef(null);
 
   // Status
   const [isLoading, setIsLoading] = useState(true);
@@ -116,31 +128,114 @@ export default function Home() {
     }
   }, [selectedOperator, selectedConnector, minPower]);
 
-  // Fetch H3 Hexagon Grid GeoJSON
-  const fetchH3Grid = useCallback(async () => {
-    try {
-      const params = new URLSearchParams();
-      if (selectedOperator) params.append("operator", selectedOperator);
-      if (selectedConnector) params.append("connector_type", selectedConnector);
-      if (minPower > 0) params.append("min_power_kw", minPower.toString());
+  // Fetch Dynamic H3 Hexagon Grid GeoJSON (with zoom-based subdivision & viewport bounding)
+  const fetchH3Grid = useCallback(
+    async (zoom = null, bounds = null) => {
+      try {
+        const params = new URLSearchParams();
+        if (zoom !== null && zoom !== undefined) {
+          params.append("zoom", zoom.toString());
+        }
+        if (bounds) {
+          params.append("min_lat", bounds.min_lat.toString());
+          params.append("max_lat", bounds.max_lat.toString());
+          params.append("min_lng", bounds.min_lng.toString());
+          params.append("max_lng", bounds.max_lng.toString());
+        }
+        if (selectedOperator) params.append("operator", selectedOperator);
+        if (selectedConnector) params.append("connector_type", selectedConnector);
+        if (minPower > 0) params.append("min_power_kw", minPower.toString());
 
-      const res = await fetch(`${API_BASE_URL}/api/v1/stations/h3-grid?${params.toString()}`);
-      if (res.ok) {
-        const geojson = await res.json();
-        setH3GeoJson(geojson);
+        const res = await fetch(`${API_BASE_URL}/api/v1/stations/h3-grid?${params.toString()}`);
+        if (res.ok) {
+          const geojson = await res.json();
+          setH3GeoJson(geojson);
+          if (geojson.resolution) {
+            setH3Resolution(geojson.resolution);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to load H3 GeoJSON grid:", err);
       }
-    } catch (err) {
-      console.warn("Failed to load H3 GeoJSON grid:", err);
+    },
+    [selectedOperator, selectedConnector, minPower]
+  );
+
+  // Fetch nearby stations around the current visible map viewport center
+  const fetchNearbyStations = useCallback(
+    async (lat, lng, radius = nearbyRadiusKm, sortBy = nearbySortBy) => {
+      if (!lat || !lng) return;
+      setIsFetchingNearby(true);
+      try {
+        const params = new URLSearchParams({
+          latitude: lat.toString(),
+          longitude: lng.toString(),
+          radius_km: radius.toString(),
+          sort_by: sortBy,
+          limit: "50",
+        });
+        if (selectedConnector) params.append("connector_type", selectedConnector);
+        if (minPower > 0) params.append("min_power_kw", minPower.toString());
+
+        const res = await fetch(`${API_BASE_URL}/api/v1/stations/nearby?${params.toString()}`);
+        if (res.ok) {
+          const data = await res.json();
+          setViewportNearbyStations(data.items || []);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch nearby stations:", err);
+      } finally {
+        setIsFetchingNearby(false);
+      }
+    },
+    [nearbyRadiusKm, nearbySortBy, selectedConnector, minPower]
+  );
+
+  // Viewport change listener triggered on map pan/zoom
+  const handleViewportChange = useCallback(
+    ({ latitude, longitude, zoom, bounds }) => {
+      setViewportCenter({ latitude, longitude });
+      setViewportZoom(zoom);
+      setViewportBounds(bounds);
+
+      if (viewportDebounceRef.current) {
+        clearTimeout(viewportDebounceRef.current);
+      }
+
+      viewportDebounceRef.current = setTimeout(() => {
+        // If H3 overlay is visible, fetch subdivided / aggregated hexagons
+        if (showH3Overlay) {
+          fetchH3Grid(zoom, bounds);
+        }
+        // Fetch nearby stations for current visible center
+        fetchNearbyStations(latitude, longitude, nearbyRadiusKm, nearbySortBy);
+      }, 250);
+    },
+    [showH3Overlay, fetchH3Grid, fetchNearbyStations, nearbyRadiusKm, nearbySortBy]
+  );
+
+  // When H3 overlay toggle changes, fetch grid if enabled
+  useEffect(() => {
+    if (showH3Overlay) {
+      fetchH3Grid(viewportZoom, viewportBounds);
     }
-  }, [selectedOperator, selectedConnector, minPower]);
+  }, [showH3Overlay, viewportZoom, viewportBounds, fetchH3Grid]);
+
+  // When sorting or search radius changes, immediately refresh nearby stations
+  useEffect(() => {
+    if (viewportCenter) {
+      fetchNearbyStations(viewportCenter.latitude, viewportCenter.longitude, nearbyRadiusKm, nearbySortBy);
+    }
+  }, [nearbySortBy, nearbyRadiusKm]);
 
   // Initial load
   useEffect(() => {
     fetchPresetCities();
     fetchMetadata();
     fetchStations();
-    fetchH3Grid();
-  }, [fetchPresetCities, fetchMetadata, fetchStations, fetchH3Grid]);
+    fetchH3Grid(viewportZoom, viewportBounds);
+    fetchNearbyStations(viewportCenter.latitude, viewportCenter.longitude, nearbyRadiusKm, nearbySortBy);
+  }, [fetchPresetCities, fetchMetadata, fetchStations, fetchH3Grid, fetchNearbyStations]);
 
   // Phase 3: Calculate OSRM Route & Corridor Candidate Stations
   const handleCalculateRoute = async (stationOverride = null) => {
@@ -201,6 +296,13 @@ export default function Home() {
     handleCalculateRoute({ id: null });
   };
 
+  // Clear active route and switch cleanly to non-routing viewport exploration mode
+  const handleClearRoute = () => {
+    setRouteData(null);
+    setSelectedStationStop(null);
+    setActivePlannerTab("nearby");
+  };
+
   // Client-side text search filter
   const filteredStations = useMemo(() => {
     if (!searchQuery.trim()) return stations;
@@ -242,6 +344,9 @@ export default function Home() {
         onSelectStation={(st) => setSelectedStation(st)}
         onRouteViaStation={(st) => handleSelectStationStop(st)}
         focusCoordinate={focusCoordinate}
+        onViewportChange={handleViewportChange}
+        h3Resolution={h3Resolution}
+        showCenterReticle={!routeData}
       />
 
       {/* 2. Left Route & Battery Planner Sidebar */}
@@ -266,6 +371,17 @@ export default function Home() {
         onFocusCoordinate={(lng, lat) => setFocusCoordinate([lng, lat])}
         isOpen={isRoutePlannerOpen}
         setIsOpen={setIsRoutePlannerOpen}
+        // Viewport exploration & nearby search props
+        viewportNearbyStations={viewportNearbyStations}
+        viewportCenter={viewportCenter}
+        isFetchingNearby={isFetchingNearby}
+        nearbySortBy={nearbySortBy}
+        setNearbySortBy={setNearbySortBy}
+        nearbyRadiusKm={nearbyRadiusKm}
+        setNearbyRadiusKm={setNearbyRadiusKm}
+        onClearRoute={handleClearRoute}
+        activeTab={activePlannerTab}
+        setActiveTab={setActivePlannerTab}
       />
 
       {/* 3. Top Navigation & Floating Filter Bar */}
