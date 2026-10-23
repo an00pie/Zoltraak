@@ -193,14 +193,14 @@ export default function LandingPage({
 
           {/* Card 2 */}
           <div className="p-5 bg-zinc-900/50 border border-zinc-800/80 rounded-2xl space-y-2.5">
-            <div className="w-8 h-8 rounded-xl bg-violet-950/80 border border-violet-800/50 flex items-center justify-center text-violet-400">
+            <div className="w-8 h-8 rounded-xl bg-blue-950/80 border border-blue-800/50 flex items-center justify-center text-blue-400">
               <Home className="w-4 h-4" />
             </div>
             <h4 className="font-bold text-sm text-zinc-100">
               Community Home Chargers
             </h4>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              Access local homeowner chargers across Kerala with guaranteed standard
+              Access 170+ verified homeowner chargers across Kerala with guaranteed standard
               rates of <strong>₹11.50 / kWh</strong> and zero surprise fees.
             </p>
           </div>
@@ -276,9 +276,9 @@ export default function LandingPage({
         </div>
 
         {/* Community Homeowner Host CTA Banner */}
-        <div className="mt-14 p-6 bg-linear-to-r from-violet-950/40 via-purple-950/30 to-zinc-900 border border-violet-900/50 rounded-3xl max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-          <div className="space-y-1 max-w-lg">
-            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-violet-900/60 text-violet-300 text-[11px] font-bold">
+        <div className="mt-14 p-6 bg-zinc-900 border border-blue-900/40 rounded-3xl max-w-4xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xl">
+          <div className="space-y-1.5 max-w-lg">
+            <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-blue-950/80 border border-blue-800/40 text-blue-300 text-[11px] font-bold">
               <span>🏠 Kerala Homeowner Network</span>
             </div>
             <h3 className="text-lg font-bold text-white">
@@ -293,7 +293,7 @@ export default function LandingPage({
           <button
             type="button"
             onClick={onOpenListHomeChargerModal}
-            className="px-5 py-3 bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shrink-0 w-full sm:w-auto"
+            className="px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-md shrink-0 w-full sm:w-auto"
           >
             + List Your Home Charger
           </button>

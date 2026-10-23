@@ -188,16 +188,16 @@ export default function ProfileDrawer({
           </div>
 
           {/* Community Host Program Banner */}
-          <div className="p-4 bg-linear-to-br from-violet-50 to-purple-50/50 border border-violet-200 rounded-2xl space-y-3">
+          <div className="p-4 bg-blue-50/70 border border-blue-200 rounded-2xl space-y-3">
             <div className="flex items-start space-x-2.5">
-              <div className="p-2 bg-violet-600 text-white rounded-xl shrink-0">
+              <div className="p-2 bg-blue-600 text-white rounded-xl shrink-0">
                 <Home className="w-5 h-5" />
               </div>
               <div>
-                <h4 className="font-bold text-xs text-violet-950">
+                <h4 className="font-bold text-xs text-blue-950">
                   Host an EV Charger at Home
                 </h4>
-                <p className="text-[11px] text-violet-700 leading-snug mt-0.5">
+                <p className="text-[11px] text-blue-800 leading-snug mt-0.5">
                   Share your home EV wallbox with Kerala EV travelers. Standard
                   tariff of <strong>₹11.50 / kWh</strong> guaranteed.
                 </p>
@@ -210,7 +210,7 @@ export default function ProfileDrawer({
                 onClose();
                 if (onOpenListHomeChargerModal) onOpenListHomeChargerModal();
               }}
-              className="w-full py-2 px-3 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl transition-all shadow-xs"
+              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-xl transition-all shadow-xs"
             >
               + List Your Home Charger
             </button>

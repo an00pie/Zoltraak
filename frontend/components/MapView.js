@@ -1286,16 +1286,16 @@ export default function MapView({
             onClick={() => setShowCommunityChargers(!showCommunityChargers)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border shadow-md text-xs font-medium transition-colors ${
               showCommunityChargers
-                ? "bg-violet-950/80 border-violet-700 text-violet-200"
+                ? "bg-blue-950/80 border-blue-700 text-blue-200"
                 : "bg-zinc-950/90 border-zinc-800 text-zinc-500 hover:text-zinc-300"
             }`}
-            title="Toggle Peer-to-Peer Community Home EV Chargers (Violet)"
+            title="Toggle Peer-to-Peer Community Home EV Chargers (Electric Blue)"
           >
-            <Home className="w-3.5 h-3.5 text-violet-400" />
+            <Home className="w-3.5 h-3.5 text-blue-400" />
             <span>Community Hosts:</span>
             <span
               className={`px-1 py-0.2 rounded font-mono text-[10px] ${
-                showCommunityChargers ? "bg-violet-900/60 text-violet-200" : "bg-zinc-900 text-zinc-600"
+                showCommunityChargers ? "bg-blue-900/60 text-blue-200" : "bg-zinc-900 text-zinc-600"
               }`}
             >
               {showCommunityChargers ? "ON" : "OFF"}

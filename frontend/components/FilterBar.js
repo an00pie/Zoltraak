@@ -166,15 +166,15 @@ export default function FilterBar({
             onClick={() => setShowCommunityChargers(!showCommunityChargers)}
             className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors shrink-0 ${
               showCommunityChargers
-                ? "bg-violet-950/80 border border-violet-700 text-violet-200"
+                ? "bg-blue-950/80 border border-blue-700 text-blue-200"
                 : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200"
             }`}
             title="Toggle Peer-to-Peer Community Home EV Chargers"
           >
-            <Home className="w-3.5 h-3.5 text-violet-400" />
+            <Home className="w-3.5 h-3.5 text-blue-400" />
             <span>Community</span>
             {totalCommunityChargers > 0 && (
-              <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${showCommunityChargers ? "bg-violet-900/60 text-violet-300" : "bg-zinc-800 text-zinc-500"}`}>
+              <span className={`text-[10px] px-1 py-0.2 rounded font-mono ${showCommunityChargers ? "bg-blue-900/60 text-blue-300" : "bg-zinc-800 text-zinc-500"}`}>
                 {totalCommunityChargers}
               </span>
             )}
@@ -186,7 +186,7 @@ export default function FilterBar({
           <button
             type="button"
             onClick={onOpenListHomeChargerModal}
-            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-medium text-xs shadow-md transition-colors shrink-0"
+            className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium text-xs shadow-md transition-colors shrink-0"
             title="List your residential EV charger"
           >
             <Plus className="w-3.5 h-3.5" />
