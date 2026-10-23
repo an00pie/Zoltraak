@@ -33,16 +33,53 @@ class RoutePlanRequest(BaseModel):
 def get_preset_cities():
     """Retrieve predefined key cities along popular Indian EV highway corridors."""
     return [
+        # Kerala NH-544 & NH-66 Corridor
         {"name": "Kochi (Ernakulam)", "state": "Kerala", "latitude": 9.9312, "longitude": 76.2673},
+        {"name": "Aluva", "state": "Kerala", "latitude": 10.1076, "longitude": 76.3516},
+        {"name": "Angamaly", "state": "Kerala", "latitude": 10.1960, "longitude": 76.3860},
+        {"name": "Koratty", "state": "Kerala", "latitude": 10.2580, "longitude": 76.3530},
         {"name": "Chalakudy", "state": "Kerala", "latitude": 10.3031, "longitude": 76.3370},
+        {"name": "Irinjalakuda", "state": "Kerala", "latitude": 10.3524, "longitude": 76.2087},
+        {"name": "Kodakara", "state": "Kerala", "latitude": 10.3667, "longitude": 76.3000},
+        {"name": "Pudukad", "state": "Kerala", "latitude": 10.4283, "longitude": 76.2730},
+        {"name": "Amballur", "state": "Kerala", "latitude": 10.4350, "longitude": 76.2650},
         {"name": "Thrissur", "state": "Kerala", "latitude": 10.5276, "longitude": 76.2144},
+        {"name": "Mannuthy", "state": "Kerala", "latitude": 10.5367, "longitude": 76.2678},
+        {"name": "Vadakkencherry", "state": "Kerala", "latitude": 10.6022, "longitude": 76.5000},
+        {"name": "Alathur", "state": "Kerala", "latitude": 10.6432, "longitude": 76.5447},
         {"name": "Palakkad", "state": "Kerala", "latitude": 10.7867, "longitude": 76.6548},
+        {"name": "Walayar", "state": "Kerala", "latitude": 10.8407, "longitude": 76.8570},
+        {"name": "Cherthala", "state": "Kerala", "latitude": 9.6845, "longitude": 76.3317},
+        {"name": "Alappuzha (Alleppey)", "state": "Kerala", "latitude": 9.4981, "longitude": 76.3388},
+        {"name": "Kottayam", "state": "Kerala", "latitude": 9.5916, "longitude": 76.5222},
+        {"name": "Changanassery", "state": "Kerala", "latitude": 9.4447, "longitude": 76.5367},
+        {"name": "Kollam (Quilon)", "state": "Kerala", "latitude": 8.8932, "longitude": 76.6141},
+        {"name": "Thiruvananthapuram (Trivandrum)", "state": "Kerala", "latitude": 8.5241, "longitude": 76.9366},
+        {"name": "Perumbavoor", "state": "Kerala", "latitude": 10.1070, "longitude": 76.4740},
+        {"name": "Muvattupuzha", "state": "Kerala", "latitude": 9.9810, "longitude": 76.5780},
+        {"name": "Thodupuzha", "state": "Kerala", "latitude": 9.8950, "longitude": 76.7180},
+        {"name": "Athirappilly", "state": "Kerala", "latitude": 10.2860, "longitude": 76.5585},
+        {"name": "Kozhikode (Calicut)", "state": "Kerala", "latitude": 11.2588, "longitude": 75.7804},
+        {"name": "Malappuram", "state": "Kerala", "latitude": 11.0510, "longitude": 76.0711},
+        {"name": "Kannur", "state": "Kerala", "latitude": 11.8745, "longitude": 75.3704},
+        {"name": "Guruvayur", "state": "Kerala", "latitude": 10.5946, "longitude": 76.0396},
+        # Tamil Nadu & Karnataka Corridors
         {"name": "Coimbatore", "state": "Tamil Nadu", "latitude": 11.0168, "longitude": 76.9558},
+        {"name": "Tiruppur", "state": "Tamil Nadu", "latitude": 11.1085, "longitude": 77.3411},
+        {"name": "Erode", "state": "Tamil Nadu", "latitude": 11.3410, "longitude": 77.7172},
+        {"name": "Salem", "state": "Tamil Nadu", "latitude": 11.6643, "longitude": 78.1460},
+        {"name": "Dharmapuri", "state": "Tamil Nadu", "latitude": 12.1211, "longitude": 78.1582},
+        {"name": "Krishnagiri", "state": "Tamil Nadu", "latitude": 12.5266, "longitude": 78.2146},
+        {"name": "Hosur", "state": "Tamil Nadu", "latitude": 12.7409, "longitude": 77.8253},
         {"name": "Bengaluru", "state": "Karnataka", "latitude": 12.9716, "longitude": 77.5946},
+        {"name": "Bidadi", "state": "Karnataka", "latitude": 12.7981, "longitude": 77.3874},
+        {"name": "Mandya", "state": "Karnataka", "latitude": 12.5242, "longitude": 76.8958},
         {"name": "Mysuru", "state": "Karnataka", "latitude": 12.2958, "longitude": 76.6394},
         {"name": "Chennai", "state": "Tamil Nadu", "latitude": 13.0827, "longitude": 80.2707},
+        # Western Corridors
         {"name": "Mumbai", "state": "Maharashtra", "latitude": 19.0760, "longitude": 72.8777},
         {"name": "Pune", "state": "Maharashtra", "latitude": 18.5204, "longitude": 73.8567},
+        {"name": "Hyderabad", "state": "Telangana", "latitude": 17.3850, "longitude": 78.4867},
     ]
 
 
@@ -117,6 +154,8 @@ def plan_ev_route(
                 "detour_km": max(0.0, detour_km),
                 "detour_duration_min": max(0.0, round(stop_route["duration_min"] - direct_duration_min, 1)),
                 "coordinates": stop_route["coordinates"],
+                "summary": stop_route.get("summary", f"Via {station.name}"),
+                "steps": stop_route.get("steps", []),
             }
 
     return {

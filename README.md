@@ -8,7 +8,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![Uber H3](https://img.shields.io/badge/H3-Discrete_Spatial_Index-orange.svg?style=flat-square)](https://h3geo.org/)
 [![Database](https://img.shields.io/badge/DB-PostgreSQL%20%7C%20SQLite-indigo.svg?style=flat-square)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/Tests-27%2F27%20Passing-brightgreen.svg?style=flat-square)](tests)
+[![Tests](https://img.shields.io/badge/Tests-35%2F35%20Passing-brightgreen.svg?style=flat-square)](tests)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 ---
@@ -20,6 +20,7 @@ Zoltraak is an intelligent Electric Vehicle (EV) charging-aware route planner de
 Development follows a strict **phase-by-phase iteration model**. This repository contains the complete implementation and verified deliverables for:
 * **Phase 1: Foundation and H3 Charging Dataset Pipeline** (Complete)
 * **Phase 2: Interactive H3 Charging Map with MapLibre GL JS** (Complete)
+* **Phase 3: Road Routing with OSRM, Corridor Detour Ratings, and Google Maps Navigation HUD** (Complete)
 
 ---
 

@@ -232,12 +232,15 @@ export default function Home() {
         stations={filteredStations}
         candidateStations={routeData?.candidate_stations || []}
         routeCoordinates={activeRouteCoordinates}
+        routeData={routeData}
         originLocation={origin}
         destLocation={destination}
         h3GeoJson={h3GeoJson}
         showH3Overlay={showH3Overlay}
+        setShowH3Overlay={setShowH3Overlay}
         selectedStation={selectedStation}
         onSelectStation={(st) => setSelectedStation(st)}
+        onRouteViaStation={(st) => handleSelectStationStop(st)}
         focusCoordinate={focusCoordinate}
       />
 
