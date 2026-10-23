@@ -1,0 +1,235 @@
+[
+  {
+    "ID": 190001,
+    "UUID": "5b8f2d1e-9a1c-4b5c-a81d-112233445566",
+    "DataProviderID": 1,
+    "OperatorID": 3433,
+    "OperatorInfo": {
+      "ID": 3433,
+      "Title": "Tata Power EZ Charge",
+      "WebsiteURL": "https://www.tatapower.com"
+    },
+    "UsageTypeID": 1,
+    "UsageCost": "₹18-22 per kWh",
+    "AddressInfo": {
+      "ID": 190001,
+      "Title": "Tata Power - Electronic City Hub",
+      "AddressLine1": "Hosur Road, Phase 1, Electronic City",
+      "Town": "Bengaluru",
+      "StateOrProvince": "Karnataka",
+      "Postcode": "560100",
+      "CountryID": 106,
+      "Latitude": 12.8399,
+      "Longitude": 77.6770,
+      "ContactTelephone1": "+91 80 1234 5678",
+      "AccessComments": "Located in ground parking bay, 24/7 accessible"
+    },
+    "Connections": [
+      {
+        "ID": 310001,
+        "ConnectionTypeID": 33,
+        "ConnectionType": {
+          "ID": 33,
+          "Title": "CCS (Type 2)",
+          "FormalName": "IEC 62196-3 Configuration FF"
+        },
+        "StatusTypeID": 50,
+        "LevelID": 3,
+        "PowerKW": 60.0,
+        "CurrentTypeID": 30,
+        "Quantity": 2
+      },
+      {
+        "ID": 310002,
+        "ConnectionTypeID": 25,
+        "ConnectionType": {
+          "ID": 25,
+          "Title": "Type 2 (Socket Only)",
+          "FormalName": "IEC 62196-2 Type 2"
+        },
+        "StatusTypeID": 50,
+        "LevelID": 2,
+        "PowerKW": 22.0,
+        "CurrentTypeID": 20,
+        "Quantity": 2
+      }
+    ],
+    "NumberOfPoints": 4,
+    "StatusTypeID": 50,
+    "DateLastStatusUpdate": "2026-10-20T10:30:00Z",
+    "DataQualityLevel": 1
+  },
+  {
+    "ID": 190002,
+    "UUID": "6c9e3f2a-0b2d-5c6d-b92e-223344556677",
+    "DataProviderID": 1,
+    "OperatorID": 3521,
+    "OperatorInfo": {
+      "ID": 3521,
+      "Title": "Zeon Charging",
+      "WebsiteURL": "https://zeoncharging.com"
+    },
+    "UsageTypeID": 1,
+    "UsageCost": "₹21 per kWh + GST",
+    "AddressInfo": {
+      "ID": 190002,
+      "Title": "Zeon Charging - Mysore Road Expressway Plaza",
+      "AddressLine1": "Bengaluru-Mysuru Access Controlled Expressway",
+      "Town": "Ramanagara",
+      "StateOrProvince": "Karnataka",
+      "Postcode": "562159",
+      "CountryID": 106,
+      "Latitude": 12.7208,
+      "Longitude": 77.2799,
+      "AccessComments": "Near food court and restrooms on highway corridor"
+    },
+    "Connections": [
+      {
+        "ID": 310003,
+        "ConnectionTypeID": 33,
+        "ConnectionType": {
+          "ID": 33,
+          "Title": "CCS (Type 2)",
+          "FormalName": "IEC 62196-3 Configuration FF"
+        },
+        "StatusTypeID": 50,
+        "LevelID": 3,
+        "PowerKW": 120.0,
+        "CurrentTypeID": 30,
+        "Quantity": 2
+      }
+    ],
+    "NumberOfPoints": 2,
+    "StatusTypeID": 50,
+    "DateLastStatusUpdate": "2026-10-22T08:15:00Z",
+    "DataQualityLevel": 1
+  },
+  {
+    "ID": 190003,
+    "UUID": "7d0f4a3b-1c3e-6d7e-ca3f-334455667788",
+    "DataProviderID": 1,
+    "OperatorID": 3440,
+    "OperatorInfo": {
+      "ID": 3440,
+      "Title": "Jio-bp pulse",
+      "WebsiteURL": "https://www.jiobp.com"
+    },
+    "UsageTypeID": 1,
+    "UsageCost": "₹20 per kWh",
+    "AddressInfo": {
+      "ID": 190003,
+      "Title": "Jio-bp pulse - Koramangala Outer Ring Road",
+      "AddressLine1": "100 Feet Intermediate Ring Road",
+      "Town": "Bengaluru",
+      "StateOrProvince": "Karnataka",
+      "Postcode": "560047",
+      "CountryID": 106,
+      "Latitude": 12.9382,
+      "Longitude": 77.6308,
+      "AccessComments": "At Jio-bp Mobility Station"
+    },
+    "Connections": [
+      {
+        "ID": 310004,
+        "ConnectionTypeID": 33,
+        "ConnectionType": {
+          "ID": 33,
+          "Title": "CCS (Type 2)"
+        },
+        "StatusTypeID": 50,
+        "PowerKW": 60.0,
+        "Quantity": 2
+      },
+      {
+        "ID": 310005,
+        "ConnectionTypeID": 2,
+        "ConnectionType": {
+          "ID": 2,
+          "Title": "CHAdeMO"
+        },
+        "StatusTypeID": 75,
+        "PowerKW": 50.0,
+        "Quantity": 1
+      }
+    ],
+    "NumberOfPoints": 3,
+    "StatusTypeID": 50,
+    "DateLastStatusUpdate": "2026-10-21T14:00:00Z",
+    "DataQualityLevel": 1
+  },
+  {
+    "ID": 190004,
+    "UUID": "8e1a5b4c-2d4f-7e8f-db40-445566778899",
+    "DataProviderID": 1,
+    "OperatorID": 3499,
+    "OperatorInfo": {
+      "ID": 3499,
+      "Title": "KSEB Electrify",
+      "WebsiteURL": "https://kseb.in"
+    },
+    "UsageTypeID": 1,
+    "UsageCost": "₹15 per kWh",
+    "AddressInfo": {
+      "ID": 190004,
+      "Title": "KSEB EV Charging Station - Palakkad",
+      "AddressLine1": "Civil Station Junction",
+      "Town": "Palakkad",
+      "StateOrProvince": "Kerala",
+      "Postcode": "678001",
+      "CountryID": 106,
+      "Latitude": 10.7867,
+      "Longitude": 76.6548
+    },
+    "Connections": [
+      {
+        "ID": 310006,
+        "ConnectionTypeID": 33,
+        "ConnectionType": {
+          "ID": 33,
+          "Title": "CCS (Type 2)"
+        },
+        "PowerKW": 50.0,
+        "Quantity": 1
+      },
+      {
+        "ID": 310007,
+        "ConnectionTypeID": 1036,
+        "ConnectionType": {
+          "ID": 1036,
+          "Title": "GB/T (DC)"
+        },
+        "PowerKW": 15.0,
+        "Quantity": 1
+      }
+    ],
+    "NumberOfPoints": 2,
+    "StatusTypeID": 50,
+    "DateLastStatusUpdate": "2026-10-18T09:00:00Z"
+  },
+  {
+    "ID": 190005,
+    "UUID": "9f2b6c5d-3e5a-8f90-ec51-5566778899aa",
+    "AddressInfo": {
+      "ID": 190005,
+      "Title": "Malformed Station (Missing Latitude)",
+      "Town": "Test City",
+      "CountryID": 106,
+      "Latitude": null,
+      "Longitude": 77.5946
+    },
+    "Connections": []
+  },
+  {
+    "ID": 190006,
+    "UUID": "af3c7d6e-4f6b-90a1-fd62-66778899aabb",
+    "AddressInfo": {
+      "ID": 190006,
+      "Title": "Malformed Station (Coordinates Out of Range)",
+      "Town": "Invalid Lat City",
+      "CountryID": 106,
+      "Latitude": 999.0,
+      "Longitude": 120.0
+    },
+    "Connections": []
+  }
+]
