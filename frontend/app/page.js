@@ -3,41 +3,66 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import MapView from "@/components/MapView";
 import FilterBar from "@/components/FilterBar";
+import RoutePlannerPanel, { EV_PRESETS } from "@/components/RoutePlannerPanel";
 import StationDetailsDrawer from "@/components/StationDetailsDrawer";
 import StatusIndicator from "@/components/StatusIndicator";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
 export default function Home() {
-  // Data states
+  // Station Data & Metadata
   const [stations, setStations] = useState([]);
   const [h3GeoJson, setH3GeoJson] = useState(null);
   const [metadata, setMetadata] = useState({
     total_stations: 0,
     operators: [],
     connector_types: [],
-    power_brackets: [
-      { label: "Any Power", min_kw: 0 },
-      { label: "Standard AC (≥7.4 kW)", min_kw: 7.4 },
-      { label: "Fast AC/DC (≥22 kW)", min_kw: 22.0 },
-      { label: "DC Fast (≥50 kW)", min_kw: 50.0 },
-      { label: "Ultra-Fast (≥100 kW)", min_kw: 100.0 },
-    ],
+    power_brackets: [],
   });
 
-  // UI & Filter states
+  // UI Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOperator, setSelectedOperator] = useState("");
   const [selectedConnector, setSelectedConnector] = useState("");
   const [minPower, setMinPower] = useState(0);
-  const [showH3Overlay, setShowH3Overlay] = useState(true);
+  const [showH3Overlay, setShowH3Overlay] = useState(false); // Default off so route is clear
   const [selectedStation, setSelectedStation] = useState(null);
   const [focusCoordinate, setFocusCoordinate] = useState(null);
 
-  // Status states
+  // Status
   const [isLoading, setIsLoading] = useState(true);
   const [backendOnline, setBackendOnline] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  // Phase 3 — Road Routing & EV States
+  const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(true);
+  const [presetCities, setPresetCities] = useState([]);
+  const [origin, setOrigin] = useState(null);
+  const [destination, setDestination] = useState(null);
+  const [batterySoC, setBatterySoC] = useState(35);
+  const [selectedEv, setSelectedEv] = useState(EV_PRESETS[0]);
+  const [minReserveSoC, setMinReserveSoC] = useState(15);
+  const [isRouting, setIsRouting] = useState(false);
+  const [routeData, setRouteData] = useState(null);
+  const [selectedStationStop, setSelectedStationStop] = useState(null);
+
+  // Fetch Preset Cities for A to B dropdowns
+  const fetchPresetCities = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/routing/preset-cities`);
+      if (res.ok) {
+        const cities = await res.json();
+        setPresetCities(cities);
+        // Default to popular Kerala EV corridor: Kochi to Thrissur
+        if (cities.length >= 3) {
+          setOrigin(cities[0]); // Kochi
+          setDestination(cities[2]); // Thrissur
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch preset cities:", err);
+    }
+  }, []);
 
   // Fetch Metadata & Filter Options
   const fetchMetadata = useCallback(async () => {
@@ -65,7 +90,6 @@ export default function Home() {
     setErrorMessage(null);
 
     try {
-      // Build query string
       const params = new URLSearchParams({
         page: "1",
         page_size: "1000",
@@ -76,9 +100,7 @@ export default function Home() {
       if (minPower > 0) params.append("min_power_kw", minPower.toString());
 
       const res = await fetch(`${API_BASE_URL}/api/v1/stations?${params.toString()}`);
-      if (!res.ok) {
-        throw new Error(`API returned HTTP ${res.status}: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`API returned HTTP ${res.status}`);
 
       const data = await res.json();
       setStations(data.items || []);
@@ -114,12 +136,72 @@ export default function Home() {
 
   // Initial load
   useEffect(() => {
+    fetchPresetCities();
     fetchMetadata();
     fetchStations();
     fetchH3Grid();
-  }, [fetchMetadata, fetchStations, fetchH3Grid]);
+  }, [fetchPresetCities, fetchMetadata, fetchStations, fetchH3Grid]);
 
-  // Client-side text search filter (matches name, address, city, H3 cell)
+  // Phase 3: Calculate OSRM Route & Corridor Candidate Stations
+  const handleCalculateRoute = async (stationOverride = null) => {
+    if (!origin || !destination) return;
+    setIsRouting(true);
+
+    try {
+      const payload = {
+        origin: {
+          name: origin.name,
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+        },
+        destination: {
+          name: destination.name,
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+        },
+        current_soc: batterySoC,
+        battery_capacity_kwh: selectedEv.capacityKwh,
+        min_reserve_soc: minReserveSoC,
+        selected_station_id: stationOverride ? stationOverride.id : selectedStationStop?.id || null,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/v1/routing/plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) throw new Error(`Routing API failed with HTTP ${res.status}`);
+
+      const data = await res.json();
+      setRouteData(data);
+    } catch (err) {
+      console.error("Routing calculation error:", err);
+    } finally {
+      setIsRouting(false);
+    }
+  };
+
+  // Automatically calculate route when default origin/destination load
+  useEffect(() => {
+    if (origin && destination && !routeData) {
+      handleCalculateRoute();
+    }
+  }, [origin, destination]);
+
+  // Add / Select intermediate charging stop
+  const handleSelectStationStop = (station) => {
+    setSelectedStationStop(station);
+    handleCalculateRoute(station);
+  };
+
+  // Remove intermediate charging stop
+  const handleClearStationStop = () => {
+    setSelectedStationStop(null);
+    handleCalculateRoute({ id: null });
+  };
+
+  // Client-side text search filter
   const filteredStations = useMemo(() => {
     if (!searchQuery.trim()) return stations;
     const q = searchQuery.toLowerCase().trim();
@@ -134,22 +216,24 @@ export default function Home() {
     });
   }, [stations, searchQuery]);
 
-  // Reset & refresh handler
-  const handleRefresh = () => {
-    fetchMetadata();
-    fetchStations();
-    fetchH3Grid();
-  };
-
-  const handleFocusStation = (lng, lat) => {
-    setFocusCoordinate([lng, lat]);
-  };
+  // Active route coordinates (either routed via charging station, or direct)
+  const activeRouteCoordinates = useMemo(() => {
+    if (!routeData) return null;
+    if (routeData.routed_via_station?.coordinates) {
+      return routeData.routed_via_station.coordinates;
+    }
+    return routeData.direct_route?.coordinates || null;
+  }, [routeData]);
 
   return (
     <main className="relative w-screen h-screen overflow-hidden bg-dark-900">
       {/* 1. Full-screen Interactive MapLibre GL Map */}
       <MapView
         stations={filteredStations}
+        candidateStations={routeData?.candidate_stations || []}
+        routeCoordinates={activeRouteCoordinates}
+        originLocation={origin}
+        destLocation={destination}
         h3GeoJson={h3GeoJson}
         showH3Overlay={showH3Overlay}
         selectedStation={selectedStation}
@@ -157,8 +241,32 @@ export default function Home() {
         focusCoordinate={focusCoordinate}
       />
 
-      {/* 2. Top Navigation & Floating Filter Bar */}
-      <div className="absolute top-4 left-4 right-4 md:right-auto md:w-[720px] z-20">
+      {/* 2. Phase 3: Left Route & Battery Planner Sidebar */}
+      <RoutePlannerPanel
+        origin={origin}
+        setOrigin={setOrigin}
+        destination={destination}
+        setDestination={setDestination}
+        presetCities={presetCities}
+        batterySoC={batterySoC}
+        setBatterySoC={setBatterySoC}
+        selectedEv={selectedEv}
+        setSelectedEv={setSelectedEv}
+        minReserveSoC={minReserveSoC}
+        setMinReserveSoC={setMinReserveSoC}
+        onCalculateRoute={() => handleCalculateRoute()}
+        isRouting={isRouting}
+        routeData={routeData}
+        selectedStationStop={selectedStationStop}
+        onSelectStationStop={handleSelectStationStop}
+        onClearStationStop={handleClearStationStop}
+        onFocusCoordinate={(lng, lat) => setFocusCoordinate([lng, lat])}
+        isOpen={isRoutePlannerOpen}
+        setIsOpen={setIsRoutePlannerOpen}
+      />
+
+      {/* 3. Top Navigation & Floating Filter Bar */}
+      <div className="absolute top-4 right-4 left-4 md:left-[470px] md:right-4 z-20 transition-all">
         <FilterBar
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
@@ -176,27 +284,35 @@ export default function Home() {
           totalStations={metadata.total_stations}
           filteredCount={filteredStations.length}
           isLoading={isLoading}
-          onRefresh={handleRefresh}
+          onRefresh={() => {
+            fetchMetadata();
+            fetchStations();
+            fetchH3Grid();
+          }}
           onSelectPlace={(lng, lat) => setFocusCoordinate([lng, lat])}
         />
       </div>
 
-      {/* 3. Status, Connectivity, and Empty/Error Indicators */}
+      {/* 4. Status, Connectivity, and Empty/Error Indicators */}
       <StatusIndicator
         backendOnline={backendOnline}
         errorMessage={errorMessage}
         isLoading={isLoading}
         totalStations={metadata.total_stations}
         filteredCount={filteredStations.length}
-        onRetry={handleRefresh}
+        onRetry={() => {
+          fetchMetadata();
+          fetchStations();
+          fetchH3Grid();
+        }}
       />
 
-      {/* 4. Slide-in Station Details Drawer */}
+      {/* 5. Slide-in Station Details Drawer */}
       {selectedStation && (
         <StationDetailsDrawer
           station={selectedStation}
           onClose={() => setSelectedStation(null)}
-          onFocus={handleFocusStation}
+          onFocus={(lng, lat) => setFocusCoordinate([lng, lat])}
         />
       )}
     </main>

@@ -48,9 +48,15 @@ export default function MapView({
   selectedStation = null,
   onSelectStation,
   focusCoordinate = null,
+  routeCoordinates = null,
+  candidateStations = [],
+  originLocation = null,
+  destLocation = null,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
+  const originMarkerRef = useRef(null);
+  const destMarkerRef = useRef(null);
   const [currentStyle, setCurrentStyle] = useState("dark");
 
   const addLayersToMap = (map) => {
@@ -96,11 +102,66 @@ export default function MapView({
       });
     }
 
-    // 2. Add Charging Stations Source & Layers
+    // 2. Add OSRM Road Route Polyline Source & Layer
+    if (!map.getSource("route-source")) {
+      map.addSource("route-source", {
+        type: "geojson",
+        data: convertRouteToGeoJson(routeCoordinates),
+      });
+
+      // Route Outer Glow
+      map.addLayer({
+        id: "route-glow",
+        type: "line",
+        source: "route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#10b981",
+          "line-width": 8,
+          "line-opacity": 0.4,
+          "line-blur": 3,
+        },
+      });
+
+      // Route Dark Casing
+      map.addLayer({
+        id: "route-casing",
+        type: "line",
+        source: "route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#0b0f17",
+          "line-width": 6,
+        },
+      });
+
+      // Route Neon Core
+      map.addLayer({
+        id: "route-core",
+        type: "line",
+        source: "route-source",
+        layout: {
+          "line-join": "round",
+          "line-cap": "round",
+        },
+        paint: {
+          "line-color": "#00f59b",
+          "line-width": 3.5,
+        },
+      });
+    }
+
+    // 3. Add Charging Stations Source & Layers (with Tier Colors)
     if (!map.getSource("stations-source")) {
       map.addSource("stations-source", {
         type: "geojson",
-        data: convertStationsToGeoJson(stations),
+        data: convertStationsToGeoJson(stations, candidateStations),
       });
 
       map.addLayer({
@@ -109,7 +170,14 @@ export default function MapView({
         source: "stations-source",
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 12, 14],
-          "circle-color": "#10b981",
+          "circle-color": [
+            "match",
+            ["get", "tier"],
+            "optimal", "#10b981",
+            "acceptable", "#f59e0b",
+            "suboptimal", "#ef4444",
+            "#10b981",
+          ],
           "circle-opacity": 0.25,
           "circle-blur": 0.5,
         },
@@ -122,9 +190,11 @@ export default function MapView({
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 4, 12, 8],
           "circle-color": [
-            "case",
-            ["==", ["get", "is_operational"], false],
-            "#f59e0b",
+            "match",
+            ["get", "tier"],
+            "optimal", "#10b981",    // Green for optimal (minimal detour)
+            "acceptable", "#f59e0b", // Yellow for acceptable
+            "suboptimal", "#ef4444", // Red for not worth it / far
             "#10b981",
           ],
           "circle-stroke-width": 2,
@@ -143,8 +213,8 @@ export default function MapView({
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: initialStyleObj.url,
-      center: [78.9629, 20.5937],
-      zoom: 4.8,
+      center: [76.5, 10.3], // Centered over Kerala / Southern Corridor initially
+      zoom: 7.5,
       attributionControl: true,
     });
 
@@ -158,7 +228,9 @@ export default function MapView({
       map.on("click", "stations-circles", (e) => {
         if (!e.features || !e.features.length) return;
         const stationId = e.features[0].properties.id;
-        const matched = stations.find((s) => s.id === stationId);
+        const matched =
+          candidateStations.find((s) => s.id === stationId) ||
+          stations.find((s) => s.id === stationId);
         if (matched) {
           onSelectStation(matched);
         }
@@ -221,14 +293,73 @@ export default function MapView({
     });
   };
 
-  // Update Stations Source Data
+  // Update Stations Source Data (with Tier classification)
   useEffect(() => {
     if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
     const source = mapRef.current.getSource("stations-source");
     if (source) {
-      source.setData(convertStationsToGeoJson(stations));
+      source.setData(convertStationsToGeoJson(stations, candidateStations));
     }
-  }, [stations]);
+  }, [stations, candidateStations]);
+
+  // Update Route Polyline Source Data
+  useEffect(() => {
+    if (!mapRef.current || !mapRef.current.isStyleLoaded()) return;
+    const source = mapRef.current.getSource("route-source");
+    if (source) {
+      source.setData(convertRouteToGeoJson(routeCoordinates));
+    }
+
+    // Auto-fit camera to route bounds
+    if (routeCoordinates && routeCoordinates.length > 1 && mapRef.current) {
+      const bounds = new maplibregl.LngLatBounds();
+      routeCoordinates.forEach((coord) => bounds.extend(coord));
+      mapRef.current.fitBounds(bounds, {
+        padding: { top: 80, bottom: 80, left: 460, right: 80 },
+        duration: 1500,
+        maxZoom: 13,
+      });
+    }
+  }, [routeCoordinates]);
+
+  // Update Origin and Destination Map Pins
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    // Origin Pin
+    if (originLocation) {
+      if (!originMarkerRef.current) {
+        const el = document.createElement("div");
+        el.className = "w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow-xl flex items-center justify-center font-bold text-[10px] text-dark-900";
+        el.innerText = "A";
+        originMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat([originLocation.longitude, originLocation.latitude])
+          .addTo(mapRef.current);
+      } else {
+        originMarkerRef.current.setLngLat([originLocation.longitude, originLocation.latitude]);
+      }
+    } else if (originMarkerRef.current) {
+      originMarkerRef.current.remove();
+      originMarkerRef.current = null;
+    }
+
+    // Destination Pin
+    if (destLocation) {
+      if (!destMarkerRef.current) {
+        const el = document.createElement("div");
+        el.className = "w-5 h-5 rounded-full bg-rose-500 border-2 border-white shadow-xl flex items-center justify-center font-bold text-[10px] text-white";
+        el.innerText = "B";
+        destMarkerRef.current = new maplibregl.Marker({ element: el })
+          .setLngLat([destLocation.longitude, destLocation.latitude])
+          .addTo(mapRef.current);
+      } else {
+        destMarkerRef.current.setLngLat([destLocation.longitude, destLocation.latitude]);
+      }
+    } else if (destMarkerRef.current) {
+      destMarkerRef.current.remove();
+      destMarkerRef.current = null;
+    }
+  }, [originLocation, destLocation]);
 
   // Update H3 GeoJSON Source Data
   useEffect(() => {
@@ -291,10 +422,34 @@ export default function MapView({
   );
 }
 
-function convertStationsToGeoJson(stations = []) {
+function convertRouteToGeoJson(coordinates) {
+  if (!coordinates || coordinates.length < 2) {
+    return { type: "FeatureCollection", features: [] };
+  }
   return {
     type: "FeatureCollection",
-    features: stations.map((st) => ({
+    features: [
+      {
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: coordinates,
+        },
+        properties: {},
+      },
+    ],
+  };
+}
+
+function convertStationsToGeoJson(stations = [], candidates = []) {
+  const candidateMap = new Map();
+  candidates.forEach((c) => candidateMap.set(c.id, c.tier));
+
+  const allList = candidates.length > 0 ? candidates : stations;
+
+  return {
+    type: "FeatureCollection",
+    features: allList.map((st) => ({
       type: "Feature",
       id: st.id,
       geometry: {
@@ -306,6 +461,7 @@ function convertStationsToGeoJson(stations = []) {
         name: st.name,
         operator: st.operator_name || "Unknown",
         h3_cell: st.h3_cell,
+        tier: candidateMap.get(st.id) || "default",
         is_operational: st.is_operational !== false,
       },
     })),
