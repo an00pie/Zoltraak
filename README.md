@@ -2,11 +2,13 @@
 
 > **EV charging-aware route planner for India with Uber H3 spatial indexing and Open Charge Map data pipelines.**
 
+[![Frontend](https://img.shields.io/badge/Frontend-Next.js%20(React)-black.svg?style=flat-square&logo=next.js)](https://nextjs.org)
+[![MapLibre GL](https://img.shields.io/badge/MapLibre_GL-Interactive_GIS-blueviolet.svg?style=flat-square)](https://maplibre.org)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg?style=flat-square&logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
 [![Uber H3](https://img.shields.io/badge/H3-Discrete_Spatial_Index-orange.svg?style=flat-square)](https://h3geo.org/)
 [![Database](https://img.shields.io/badge/DB-PostgreSQL%20%7C%20SQLite-indigo.svg?style=flat-square)](https://www.sqlalchemy.org/)
-[![Tests](https://img.shields.io/badge/Tests-25%2F25%20Passing-brightgreen.svg?style=flat-square)](tests)
+[![Tests](https://img.shields.io/badge/Tests-27%2F27%20Passing-brightgreen.svg?style=flat-square)](tests)
 [![License](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)](LICENSE)
 
 ---
@@ -15,20 +17,24 @@
 
 Zoltraak is an intelligent Electric Vehicle (EV) charging-aware route planner designed specifically for Indian highway corridors and urban driving. It accounts for real-world battery discharge curves, terrain gradients, vehicle specifications, charging station availability, and en-route corridor discovery.
 
-Development follows a strict **phase-by-phase iteration model**. This repository contains the complete implementation and verified deliverables for **Phase 1: Foundation and H3 Charging Dataset Pipeline**.
+Development follows a strict **phase-by-phase iteration model**. This repository contains the complete implementation and verified deliverables for:
+* **Phase 1: Foundation and H3 Charging Dataset Pipeline** (Complete)
+* **Phase 2: Interactive H3 Charging Map with MapLibre GL JS** (Complete)
 
 ---
 
-## 🏗️ Architecture & Technology Stack (Phase 1)
+## 🏗️ Architecture & Technology Stack
 
+* **Frontend:** Next.js (App Router, JavaScript/React) with Tailwind CSS and Lucide React.
+* **Interactive Mapping:** [MapLibre GL JS](https://maplibre.org/) with vector dark theme and dynamic GeoJSON station & H3 polygon layers.
 * **Backend Engine:** Python 3.11+ with [FastAPI](https://fastapi.tiangolo.com) for high-performance async REST APIs.
 * **Spatial Indexing:** [Uber H3](https://h3geo.org/) discrete global grid system (Resolution 8 by default: ~0.74 km² area, ~461m hexagon edge).
 * **Database & ORM:** [SQLAlchemy](https://www.sqlalchemy.org/) 2.0 with unified support for:
   * **PostgreSQL + PostGIS** for production and geospatial operations.
   * **SQLite** (local file or `:memory:`) for zero-dependency local runs and automated CI.
-* **Station Directory Source:** [Open Charge Map (OCM) v3 API](https://openchargemap.io/site/develop/api) with offline sample India fixtures.
+* **Station Directory Source:** [Open Charge Map (OCM) v3 API](https://openchargemap.io/site/develop/api) with verified live API key integration.
 * **Validation & Types:** [Pydantic v2](https://docs.pydantic.dev/) and `pydantic-settings`.
-* **Testing:** [Pytest](https://pytest.org/) and FastAPI `TestClient`.
+* **Testing:** [Pytest](https://pytest.org/) and FastAPI `TestClient` (27/27 automated tests passing).
 
 ---
 
