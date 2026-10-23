@@ -103,3 +103,30 @@ class TestAPI:
         runs = resp_runs.json()
         assert len(runs) >= 1
         assert runs[0]["status"] == "completed"
+
+    def test_stations_metadata(self, client, db_session, sample_raw_data):
+        pipeline = IngestionPipeline(db=db_session)
+        pipeline.process_records(sample_raw_data, country_code="IN")
+
+        resp = client.get("/api/v1/stations/metadata")
+        assert resp.status_code == 200
+        meta = resp.json()
+        assert meta["total_stations"] == 4
+        assert len(meta["operators"]) >= 1
+        assert "CCS2" in meta["connector_types"]
+        assert len(meta["power_brackets"]) > 0
+
+    def test_h3_grid_geojson(self, client, db_session, sample_raw_data):
+        pipeline = IngestionPipeline(db=db_session)
+        pipeline.process_records(sample_raw_data, country_code="IN")
+
+        resp = client.get("/api/v1/stations/h3-grid")
+        assert resp.status_code == 200
+        geojson = resp.json()
+        assert geojson["type"] == "FeatureCollection"
+        assert len(geojson["features"]) == 4  # Each test station is in distinct cell
+        feature = geojson["features"][0]
+        assert feature["geometry"]["type"] == "Polygon"
+        assert len(feature["geometry"]["coordinates"][0]) >= 7  # closed hexagon ring
+        assert "station_count" in feature["properties"]
+        assert feature["properties"]["station_count"] >= 1

@@ -1,9 +1,9 @@
-"""Station querying API with H3 spatial cell filtering and pagination."""
+"""Station querying API with H3 spatial cell filtering, GeoJSON hexagon grids, and metadata."""
 
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, distinct
 
 from backend.app.api.deps import get_db
 from backend.app.db.models import Station, StationConnector
@@ -11,6 +11,102 @@ from backend.app.schemas.station import StationRead, StationListResponse
 from backend.app.ingestion.h3_indexer import H3SpatialIndexer
 
 router = APIRouter()
+
+
+@router.get("/stations/metadata", tags=["Stations"])
+def get_stations_metadata(db: Session = Depends(get_db)):
+    """Retrieve aggregate metadata (operators, connector types, count) to populate frontend filters dynamically."""
+    total_stations = db.query(Station).count()
+    operators = [
+        op[0]
+        for op in db.query(Station.operator_name)
+        .filter(Station.operator_name.isnot(None))
+        .distinct()
+        .order_by(Station.operator_name.asc())
+        .all()
+    ]
+    connector_types = [
+        ct[0]
+        for ct in db.query(StationConnector.connector_type)
+        .filter(StationConnector.connector_type.isnot(None))
+        .distinct()
+        .order_by(StationConnector.connector_type.asc())
+        .all()
+    ]
+
+    return {
+        "total_stations": total_stations,
+        "operators": operators,
+        "connector_types": connector_types,
+        "power_brackets": [
+            {"label": "Any Power", "min_kw": 0},
+            {"label": "Standard AC (≥7.4 kW)", "min_kw": 7.4},
+            {"label": "Fast AC/DC (≥22 kW)", "min_kw": 22.0},
+            {"label": "DC Fast (≥50 kW)", "min_kw": 50.0},
+            {"label": "Ultra-Fast (≥100 kW)", "min_kw": 100.0},
+        ],
+    }
+
+
+@router.get("/stations/h3-grid", tags=["Stations"])
+def get_h3_grid_geojson(
+    city: Optional[str] = Query(None, description="Optional city filter"),
+    operator: Optional[str] = Query(None, description="Optional operator filter"),
+    connector_type: Optional[str] = Query(None, description="Optional connector filter"),
+    min_power_kw: Optional[float] = Query(None, ge=0, description="Optional min power filter"),
+    db: Session = Depends(get_db),
+):
+    """
+    Returns GeoJSON FeatureCollection of H3 hexagons covering active charging stations.
+    Includes density counts, average power ratings, and operator tallies per cell.
+    """
+    query = db.query(
+        Station.h3_cell,
+        func.count(distinct(Station.id)).label("station_count"),
+        func.avg(StationConnector.power_kw).label("avg_power"),
+    ).outerjoin(Station.connectors)
+
+    if city:
+        query = query.filter(Station.city.ilike(f"%{city}%"))
+    if operator:
+        query = query.filter(Station.operator_name.ilike(f"%{operator}%"))
+    if connector_type:
+        query = query.filter(StationConnector.connector_type.ilike(f"%{connector_type}%"))
+    if min_power_kw is not None:
+        query = query.filter(StationConnector.power_kw >= min_power_kw)
+
+    results = query.group_by(Station.h3_cell).all()
+
+    features: List[Dict[str, Any]] = []
+    for h3_cell, station_count, avg_power in results:
+        if not H3SpatialIndexer.is_valid_h3(h3_cell):
+            continue
+        try:
+            boundary = H3SpatialIndexer.h3_to_polygon_coordinates(h3_cell)
+            # GeoJSON requires [lng, lat] order and a closed outer ring
+            geojson_ring = [[lng, lat] for lat, lng in boundary]
+            geojson_ring.append(geojson_ring[0])
+
+            features.append({
+                "type": "Feature",
+                "id": h3_cell,
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [geojson_ring],
+                },
+                "properties": {
+                    "h3_cell": h3_cell,
+                    "station_count": station_count,
+                    "avg_power_kw": round(float(avg_power), 1) if avg_power is not None else None,
+                },
+            })
+        except Exception:
+            continue
+
+    return {
+        "type": "FeatureCollection",
+        "features": features,
+    }
 
 
 @router.get("/stations", response_model=StationListResponse, tags=["Stations"])
@@ -22,7 +118,7 @@ def list_stations(
     connector_type: Optional[str] = Query(None, description="Filter by connector type (e.g., 'CCS2', 'Type 2')"),
     min_power_kw: Optional[float] = Query(None, ge=0, description="Filter stations with at least this power kW"),
     page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=200, description="Items per page"),
+    page_size: int = Query(100, ge=1, le=1000, description="Items per page"),
     db: Session = Depends(get_db),
 ):
     """
