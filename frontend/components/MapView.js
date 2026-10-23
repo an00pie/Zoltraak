@@ -14,6 +14,7 @@ import {
   CornerDownRight,
   Zap,
   Home,
+  X,
 } from "lucide-react";
 
 export const MAP_STYLES = [
@@ -84,6 +85,11 @@ export default function MapView({
   communityChargers = [],
   showCommunityChargers = true,
   setShowCommunityChargers = null,
+  clusteringEnabled = true,
+  setClusteringEnabled = null,
+  currentStyle = "dark",
+  setCurrentStyle = null,
+  onClearRoute = null,
 }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -97,8 +103,6 @@ export default function MapView({
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
 
-  const [currentStyle, setCurrentStyle] = useState("dark");
-  const [clusteringEnabled, setClusteringEnabled] = useState(true);
   const [showGpsSteps, setShowGpsSteps] = useState(false);
 
   // Active route details for Google Maps-style navigation HUD
@@ -830,7 +834,9 @@ export default function MapView({
     const target = MAP_STYLES.find((s) => s.id === newStyleId);
     if (!target) return;
 
-    setCurrentStyle(newStyleId);
+    if (setCurrentStyle) {
+      setCurrentStyle(newStyleId);
+    }
     mapRef.current.setStyle(target.url);
     mapRef.current.once("style.load", () => {
       addAllLayers(mapRef.current);
@@ -840,11 +846,35 @@ export default function MapView({
   // Handle Clustering Toggle
   const handleToggleClustering = () => {
     const nextState = !clusteringEnabled;
-    setClusteringEnabled(nextState);
+    if (setClusteringEnabled) {
+      setClusteringEnabled(nextState);
+    }
     if (mapRef.current) {
       addStationsSourceAndLayers(mapRef.current, nextState);
     }
   };
+
+  // Sync style changes from external controls
+  const prevStyleRef = useRef(currentStyle);
+  useEffect(() => {
+    if (!mapRef.current || prevStyleRef.current === currentStyle) return;
+    prevStyleRef.current = currentStyle;
+    const target = MAP_STYLES.find((s) => s.id === currentStyle);
+    if (target) {
+      mapRef.current.setStyle(target.url);
+      mapRef.current.once("style.load", () => {
+        addAllLayers(mapRef.current);
+      });
+    }
+  }, [currentStyle]);
+
+  // Sync clustering changes from external controls
+  const prevClusterRef = useRef(clusteringEnabled);
+  useEffect(() => {
+    if (!mapRef.current || prevClusterRef.current === clusteringEnabled) return;
+    prevClusterRef.current = clusteringEnabled;
+    addStationsSourceAndLayers(mapRef.current, clusteringEnabled);
+  }, [clusteringEnabled]);
 
   // Center camera on full active route bounds
   const handleFitRouteBounds = () => {
@@ -1048,8 +1078,8 @@ export default function MapView({
 
       {/* Google Maps GPS Navigation Floating Banner */}
       {activeRouteDetails && (
-        <div className="absolute top-20 left-4 right-4 md:left-[450px] md:right-8 z-20 flex flex-col items-center pointer-events-none">
-          <div className="bg-zinc-950/95 border border-zinc-800 rounded-xl shadow-lg p-3 px-3.5 flex flex-wrap items-center justify-between gap-3 pointer-events-auto max-w-2xl w-full text-xs">
+        <div className="absolute top-28 left-3 right-3 sm:left-auto sm:right-6 sm:w-[480px] z-20 flex flex-col pointer-events-none animate-in slide-in-from-top-2 duration-200">
+          <div className="bg-zinc-950/95 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-2xl p-3 px-3.5 flex flex-wrap items-center justify-between gap-3 pointer-events-auto w-full text-xs">
             {/* Left: Direction Icon & Highway Summary */}
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shrink-0">
@@ -1105,6 +1135,16 @@ export default function MapView({
               >
                 <Maximize2 className="w-4 h-4" />
               </button>
+              {onClearRoute && (
+                <button
+                  type="button"
+                  onClick={onClearRoute}
+                  className="p-1.5 bg-zinc-900 hover:bg-rose-950/80 hover:text-rose-400 border border-zinc-800 text-zinc-400 rounded-lg transition-colors"
+                  title="Clear Active Route"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -1137,8 +1177,8 @@ export default function MapView({
         </div>
       )}
 
-      {/* Floating Map Controls (Bottom-Left) */}
-      <div className="absolute bottom-6 left-4 z-20 flex flex-wrap items-center gap-2">
+      {/* Floating Map Controls (Bottom-Left - desktop only) */}
+      <div className="hidden md:flex absolute bottom-6 left-4 z-20 flex-wrap items-center gap-2">
         {/* Style Switcher */}
         <div className="bg-zinc-950/90 border border-zinc-800 rounded-lg p-1 shadow-md flex items-center gap-1 text-xs">
           <div className="px-2 py-1 text-zinc-500 flex items-center gap-1 font-medium">

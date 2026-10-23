@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import MapView from "@/components/MapView";
 import FilterBar from "@/components/FilterBar";
 import RoutePlannerPanel from "@/components/RoutePlannerPanel";
+import RoutePlannerModal from "@/components/RoutePlannerModal";
+import MapFloatingControls from "@/components/MapFloatingControls";
 import StationDetailsDrawer from "@/components/StationDetailsDrawer";
 import StatusIndicator from "@/components/StatusIndicator";
 import ListHomeChargerModal from "@/components/ListHomeChargerModal";
@@ -17,7 +19,6 @@ import MobileStationCard from "@/components/MobileStationCard";
 import SessionsModal from "@/components/SessionsModal";
 import NotificationsModal from "@/components/NotificationsModal";
 import { DEFAULT_VEHICLE } from "@/data/vehicles";
-import { QrCode, Crosshair, SlidersHorizontal } from "lucide-react";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
@@ -32,6 +33,14 @@ export default function Home() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSessionsOpen, setIsSessionsOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+  // Dedicated Route A -> B Modal
+  const [isRoutePlannerModalOpen, setIsRoutePlannerModalOpen] = useState(false);
+
+  // Map Controls & Display Settings
+  const [clusteringEnabled, setClusteringEnabled] = useState(true);
+  const [currentStyle, setCurrentStyle] = useState("dark");
+  const [isLocating, setIsLocating] = useState(false);
 
   // Station Data & Metadata
   const [stations, setStations] = useState([]);
@@ -75,8 +84,7 @@ export default function Home() {
   const [backendOnline, setBackendOnline] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
 
-  // Road Routing & EV States
-  const [isRoutePlannerOpen, setIsRoutePlannerOpen] = useState(false);
+  // Road Routing & EV States (Starts Clean in Free Exploration Mode - NO auto predefined route)
   const [presetCities, setPresetCities] = useState([]);
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
@@ -110,17 +118,37 @@ export default function Home() {
     } catch (e) {}
   };
 
-  // Fetch Preset Cities
+  // Real Browser GPS Geolocation Recenter
+  const handleLocateMe = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        const { latitude, longitude } = pos.coords;
+        setFocusCoordinate([Number(longitude.toFixed(5)), Number(latitude.toFixed(5))]);
+        setViewportCenter({ latitude, longitude });
+      },
+      (err) => {
+        setIsLocating(false);
+        console.warn("Geolocation permission error:", err);
+        alert("Location access was denied. Please allow location permissions in your browser to center on your position.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  // Fetch Preset Cities (Does NOT force a route on start)
   const fetchPresetCities = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/routing/preset-cities`);
       if (res.ok) {
         const cities = await res.json();
         setPresetCities(cities);
-        if (cities.length >= 3) {
-          setOrigin(cities[0]); // Kochi
-          setDestination(cities[2]); // Thrissur
-        }
       }
     } catch (err) {
       console.warn("Could not fetch preset cities:", err);
@@ -246,10 +274,6 @@ export default function Home() {
           const data = await res.json();
           const items = data.items || [];
           setViewportNearbyStations(items);
-          // Pre-populate mobile card if empty
-          if (!activeMobileStation && items.length > 0) {
-            setActiveMobileStation(items[0]);
-          }
         }
       } catch (err) {
         console.warn("Failed to fetch nearby stations:", err);
@@ -257,7 +281,7 @@ export default function Home() {
         setIsFetchingNearby(false);
       }
     },
-    [nearbyRadiusKm, nearbySortBy, selectedConnector, minPower, activeMobileStation]
+    [nearbyRadiusKm, nearbySortBy, selectedConnector, minPower]
   );
 
   // Viewport change listener
@@ -303,9 +327,12 @@ export default function Home() {
     fetchNearbyStations(viewportCenter.latitude, viewportCenter.longitude, nearbyRadiusKm, nearbySortBy);
   }, [fetchPresetCities, fetchMetadata, fetchStations, fetchCommunityChargers, fetchH3Grid, fetchNearbyStations]);
 
-  // Calculate OSRM Route
-  const handleCalculateRoute = async (stationOverride = null) => {
-    if (!origin || !destination) return;
+  // Calculate OSRM Route (Triggered ONLY when user explicitly asks for Route A -> B)
+  const handleCalculateRoute = async (stationOverride = null, customOrigin = null, customDest = null) => {
+    const orig = customOrigin || origin;
+    const dest = customDest || destination;
+
+    if (!orig || !dest) return;
     setIsRouting(true);
 
     try {
@@ -318,14 +345,14 @@ export default function Home() {
 
       const payload = {
         origin: {
-          name: origin.name,
-          latitude: origin.latitude,
-          longitude: origin.longitude,
+          name: orig.name,
+          latitude: orig.latitude,
+          longitude: orig.longitude,
         },
         destination: {
-          name: destination.name,
-          latitude: destination.latitude,
-          longitude: destination.longitude,
+          name: dest.name,
+          latitude: dest.latitude,
+          longitude: dest.longitude,
         },
         current_soc: batterySoC,
         battery_capacity_kwh: selectedEv?.capacityKwh || 32.6,
@@ -363,21 +390,18 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Routing calculation error:", err);
+      alert("Unable to calculate road route between selected locations. Please check internet connectivity.");
     } finally {
       setIsRouting(false);
     }
   };
 
-  useEffect(() => {
-    if (origin && destination && !routeData) {
-      handleCalculateRoute();
-    }
-  }, [origin, destination]);
-
   const handleSelectStationStop = (station) => {
     setSelectedStationStop(station);
     setActiveMobileStation(station);
-    handleCalculateRoute(station);
+    if (origin && destination) {
+      handleCalculateRoute(station);
+    }
   };
 
   const handleClearStationStop = () => {
@@ -388,7 +412,9 @@ export default function Home() {
   const handleClearRoute = () => {
     setRouteData(null);
     setSelectedStationStop(null);
-    setActivePlannerTab("nearby");
+    setOrigin(null);
+    setDestination(null);
+    setActiveMobileStation(null);
   };
 
   // Filter stations based on search query & active chips
@@ -468,7 +494,7 @@ export default function Home() {
             onSelectCorridor={(orig, dest) => {
               setOrigin(orig);
               setDestination(dest);
-              handleCalculateRoute();
+              handleCalculateRoute(null, orig, dest);
             }}
             onSearchPlace={(q) => {
               setSearchQuery(q);
@@ -502,6 +528,11 @@ export default function Home() {
             communityChargers={communityChargers}
             showCommunityChargers={showCommunityChargers}
             setShowCommunityChargers={setShowCommunityChargers}
+            clusteringEnabled={clusteringEnabled}
+            setClusteringEnabled={setClusteringEnabled}
+            currentStyle={currentStyle}
+            setCurrentStyle={setCurrentStyle}
+            onClearRoute={handleClearRoute}
           />
 
           {/* 2. Top Search & Filter Bar (Matching Image 4) */}
@@ -517,7 +548,7 @@ export default function Home() {
               showCommunityChargers={showCommunityChargers}
               setShowCommunityChargers={setShowCommunityChargers}
               onOpenAdvancedFilters={() => setShowDesktopFilters(!showDesktopFilters)}
-              onLocateMe={() => setFocusCoordinate([76.333, 10.307])}
+              onLocateMe={handleLocateMe}
               apiBaseUrl={API_BASE_URL}
             />
 
@@ -557,80 +588,48 @@ export default function Home() {
             )}
           </div>
 
-          {/* 3. Floating Map Action Buttons (Matching Image 4) */}
-          <div className="absolute right-4 top-40 z-20 flex flex-col space-y-3 pointer-events-auto">
-            {/* QR Scanner button matching Image 4 */}
-            <button
-              type="button"
-              onClick={() => {
-                alert("EVOK QR Scan: Ready to scan QR code at any Kerala charging station or community wallbox!");
-              }}
-              className="w-11 h-11 rounded-full bg-zinc-900/90 text-white flex items-center justify-center shadow-xl border border-zinc-700/80 hover:bg-black active:scale-95 transition-all"
-              title="Scan Charger QR Code"
-            >
-              <QrCode className="w-5 h-5" />
-            </button>
-
-            {/* Locate Me crosshairs button matching Image 4 */}
-            <button
-              type="button"
-              onClick={() => {
-                setFocusCoordinate([76.3385, 10.3065]);
-              }}
-              className="w-11 h-11 rounded-full bg-white text-zinc-900 flex items-center justify-center shadow-xl border border-zinc-200 hover:bg-zinc-100 active:scale-95 transition-all"
-              title="Center Location"
-            >
-              <Crosshair className="w-5 h-5 text-amber-600" />
-            </button>
-          </div>
-
-          {/* 4. Left Route Planner Panel (Desktop & Highway corridor mode) */}
-          <RoutePlannerPanel
-            origin={origin}
-            setOrigin={setOrigin}
-            destination={destination}
-            setDestination={setDestination}
-            presetCities={presetCities}
-            batterySoC={batterySoC}
-            setBatterySoC={setBatterySoC}
-            selectedEv={selectedEv}
-            setSelectedEv={setSelectedEv}
-            minReserveSoC={minReserveSoC}
-            setMinReserveSoC={setMinReserveSoC}
-            onCalculateRoute={() => handleCalculateRoute()}
-            isRouting={isRouting}
-            routeData={routeData}
-            selectedStationStop={selectedStationStop}
-            onSelectStationStop={handleSelectStationStop}
-            onClearStationStop={handleClearStationStop}
-            onFocusCoordinate={(lng, lat) => setFocusCoordinate([lng, lat])}
-            isOpen={isRoutePlannerOpen}
-            setIsOpen={setIsRoutePlannerOpen}
-            viewportNearbyStations={viewportNearbyStations}
-            viewportCenter={viewportCenter}
-            isFetchingNearby={isFetchingNearby}
-            nearbySortBy={nearbySortBy}
-            setNearbySortBy={setNearbySortBy}
-            nearbyRadiusKm={nearbyRadiusKm}
-            setNearbyRadiusKm={setNearbyRadiusKm}
-            onClearRoute={handleClearRoute}
-            activeTab={activePlannerTab}
-            setActiveTab={setActivePlannerTab}
+          {/* 3. Floating Map Controls (Right-Side Floating Island) */}
+          <MapFloatingControls
+            onOpenRoutePlanner={() => setIsRoutePlannerModalOpen(true)}
+            hasActiveRoute={Boolean(routeData)}
+            onLocateMe={handleLocateMe}
+            isLocating={isLocating}
+            clusteringEnabled={clusteringEnabled}
+            onToggleClustering={() => setClusteringEnabled(!clusteringEnabled)}
+            showH3Overlay={showH3Overlay}
+            onToggleH3={() => setShowH3Overlay(!showH3Overlay)}
+            showCommunityChargers={showCommunityChargers}
+            onToggleCommunity={() => setShowCommunityChargers(!showCommunityChargers)}
+            totalCommunityChargers={communityChargers.length}
+            currentStyle={currentStyle}
+            onChangeStyle={(st) => setCurrentStyle(st)}
           />
 
-          {/* 5. Floating Bottom Station Preview Card (Matching Image 4) */}
+          {/* 4. Floating Bottom Station Preview Card (Matching Image 4) */}
           {activeMobileStation && !selectedStation && (
             <div className="absolute bottom-20 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-20 flex justify-center">
               <MobileStationCard
                 station={activeMobileStation}
-                onGetDirection={(st) => handleSelectStationStop(st)}
+                onGetDirection={(st) => {
+                  if (origin && destination) {
+                    handleSelectStationStop(st);
+                  } else {
+                    // Pre-fill destination and prompt for route
+                    setDestination({
+                      name: st.name || st.title,
+                      latitude: st.latitude,
+                      longitude: st.longitude,
+                    });
+                    setIsRoutePlannerModalOpen(true);
+                  }
+                }}
                 onChargeNow={(st) => setSelectedStation(st)}
                 onClose={() => setActiveMobileStation(null)}
               />
             </div>
           )}
 
-          {/* 6. Full Station Details Drawer (when user taps for full info) */}
+          {/* 5. Full Station Details Drawer (when user taps for full info) */}
           {selectedStation && (
             <StationDetailsDrawer
               station={selectedStation}
@@ -645,7 +644,7 @@ export default function Home() {
             />
           )}
 
-          {/* 7. Mobile Bottom Navigation Bar (Matching Image 4) */}
+          {/* 6. Mobile Bottom Navigation Bar (Matching Image 4) */}
           <MobileBottomNav
             activeTab={mobileNavTab}
             onTabChange={handleMobileNavTabChange}
@@ -653,6 +652,29 @@ export default function Home() {
           />
         </div>
       )}
+
+      {/* 7. Dedicated Route Planner Modal (Point A to Point B) */}
+      <RoutePlannerModal
+        isOpen={isRoutePlannerModalOpen}
+        onClose={() => setIsRoutePlannerModalOpen(false)}
+        origin={origin}
+        setOrigin={setOrigin}
+        destination={destination}
+        setDestination={setDestination}
+        batterySoC={batterySoC}
+        setBatterySoC={setBatterySoC}
+        minReserveSoC={minReserveSoC}
+        setMinReserveSoC={setMinReserveSoC}
+        selectedVehicle={selectedEv}
+        onChangeVehicleClick={() => {
+          setIsRoutePlannerModalOpen(false);
+          setIsVehicleSelectorOpen(true);
+        }}
+        onCalculateRoute={() => handleCalculateRoute()}
+        onClearRoute={handleClearRoute}
+        isRouting={isRouting}
+        routeData={routeData}
+      />
 
       {/* 8. Vehicle Onboarding & Selector Modal (Step 1 -> 2 -> 3 from Images 1, 2, 3) */}
       <VehicleSelectorModal
