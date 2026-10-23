@@ -18,7 +18,14 @@ import {
   ExternalLink,
 } from "lucide-react";
 
-export default function StationDetailsDrawer({ station, onClose, onFocus }) {
+export default function StationDetailsDrawer({
+  station,
+  onClose,
+  onFocus,
+  onRouteViaStation,
+  onClearStationStop,
+  isSelectedStop = false,
+}) {
   const [copiedCoord, setCopiedCoord] = useState(false);
   const [copiedH3, setCopiedH3] = useState(false);
 
@@ -134,7 +141,7 @@ export default function StationDetailsDrawer({ station, onClose, onFocus }) {
               onClick={() => copyToClipboard(`${station.latitude}, ${station.longitude}`, "coord")}
               className="flex items-center gap-1 text-[11px] text-brand-400 hover:text-brand-300"
             >
-              {copiedCoord ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+              {copiedCoord ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
               <span>{copiedCoord ? "Copied" : "Copy Coords"}</span>
             </button>
           </div>
@@ -240,20 +247,46 @@ export default function StationDetailsDrawer({ station, onClose, onFocus }) {
       </div>
 
       {/* Action Footer */}
-      <div className="p-3 border-t border-gray-700/70 bg-dark-900 flex items-center gap-2">
-        <button
-          onClick={() => onFocus(station.longitude, station.latitude)}
-          className="flex-1 py-2 px-3 bg-brand-500 hover:bg-brand-600 text-dark-900 font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-xs shadow-md shadow-brand-500/20"
-        >
-          <Compass className="w-3.5 h-3.5" />
-          Focus On Map
-        </button>
-        <button
-          onClick={onClose}
-          className="py-2 px-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-colors text-xs"
-        >
-          Close
-        </button>
+      <div className="p-3 border-t border-gray-700/70 bg-dark-900 flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          {onRouteViaStation && (
+            isSelectedStop ? (
+              <button
+                type="button"
+                onClick={onClearStationStop}
+                className="flex-1 py-2 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/50 font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-xs shadow-md"
+              >
+                <X className="w-3.5 h-3.5" />
+                Remove Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onRouteViaStation(station)}
+                className="flex-1 py-2 px-3 bg-brand-500 hover:bg-brand-600 text-dark-900 font-extrabold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-xs shadow-md shadow-brand-500/20"
+              >
+                <Zap className="w-3.5 h-3.5 fill-dark-900" />
+                Route Via This Stop
+              </button>
+            )
+          )}
+          <button
+            type="button"
+            onClick={() => onFocus(station.longitude, station.latitude)}
+            className="py-2 px-3 bg-dark-800 hover:bg-dark-700 border border-gray-700 text-gray-200 font-semibold rounded-lg transition-colors flex items-center justify-center gap-1.5 text-xs"
+            title="Focus camera on this station"
+          >
+            <Compass className="w-3.5 h-3.5 text-brand-400" />
+            <span>Map</span>
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="py-2 px-3 bg-gray-800 hover:bg-gray-700 text-gray-300 font-medium rounded-lg transition-colors text-xs"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </div>
   );

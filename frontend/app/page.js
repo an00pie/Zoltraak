@@ -316,6 +316,12 @@ export default function Home() {
           station={selectedStation}
           onClose={() => setSelectedStation(null)}
           onFocus={(lng, lat) => setFocusCoordinate([lng, lat])}
+          onRouteViaStation={(st) => handleSelectStationStop(st)}
+          onClearStationStop={handleClearStationStop}
+          isSelectedStop={
+            selectedStationStop?.id === selectedStation.id ||
+            routeData?.routed_via_station?.station_id === selectedStation.id
+          }
         />
       )}
     </main>
