@@ -14,7 +14,7 @@ export default function StatusIndicator({
   return (
     <>
       {/* Backend connection status (Discrete bottom-right or top-right indicator) */}
-      {!backendOnline && (
+      {!backendOnline && !isLoading && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
           <div className="bg-zinc-950 border border-rose-800/80 rounded-xl p-3 shadow-lg flex items-center justify-between gap-3 text-rose-300 text-xs">
             <div className="flex items-center gap-2">

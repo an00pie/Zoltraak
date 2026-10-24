@@ -244,7 +244,7 @@ export default function Home() {
       const res = await fetch(`${API_BASE_URL}/api/v1/community-chargers`);
       if (res.ok) {
         const data = await res.json();
-        setCommunityChargers(data.items || []);
+        setCommunityChargers(Array.isArray(data) ? data : (data.items || []));
       }
     } catch (err) {
       console.warn("Could not fetch community chargers:", err);
