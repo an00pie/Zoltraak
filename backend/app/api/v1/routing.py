@@ -15,7 +15,7 @@ osrm_client = OSRMClient()
 
 
 class RouteLocation(BaseModel):
-    name: str
+    name: Optional[str] = "Location"
     latitude: float
     longitude: float
 
