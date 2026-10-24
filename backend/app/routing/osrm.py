@@ -97,24 +97,20 @@ class OSRMClient:
             origin_lng, origin_lat, dest_lng, dest_lat
         )
 
-    def get_route_via_waypoint(
+    def get_route_via_waypoints(
         self,
-        origin_lng: float,
-        origin_lat: float,
-        stop_lng: float,
-        stop_lat: float,
-        dest_lng: float,
-        dest_lat: float,
+        waypoints: List[Tuple[float, float]],
     ) -> Dict[str, Any]:
         """
-        Calculate driving route passing through an intermediate charging station stop:
-        Origin -> Charging Station -> Destination.
+        Calculate driving route passing through multiple intermediate coordinates:
+        waypoints = [(orig_lng, orig_lat), (stop1_lng, stop1_lat), ..., (dest_lng, dest_lat)]
         """
-        coords_str = (
-            f"{origin_lng:.6f},{origin_lat:.6f};"
-            f"{stop_lng:.6f},{stop_lat:.6f};"
-            f"{dest_lng:.6f},{dest_lat:.6f}"
-        )
+        if len(waypoints) < 2:
+            raise ValueError("At least 2 waypoints required")
+        if len(waypoints) == 2:
+            return self.get_route(waypoints[0][0], waypoints[0][1], waypoints[1][0], waypoints[1][1])
+
+        coords_str = ";".join(f"{lng:.6f},{lat:.6f}" for lng, lat in waypoints)
         url = f"{self.base_url}/route/v1/driving/{coords_str}"
         params = {
             "overview": "full",
@@ -137,27 +133,60 @@ class OSRMClient:
                         "distance_km": round(route["distance"] / 1000.0, 2),
                         "duration_min": round(route["duration"] / 60.0, 1),
                         "coordinates": route["geometry"]["coordinates"],
-                        "summary": "Multi-stop Corridor via EV Charger",
+                        "summary": f"Multi-stop Route ({len(waypoints) - 2} charging stops)",
                         "steps": steps,
                     }
         except Exception as e:
             logger.warning(f"OSRM multi-stop routing query failed ({e}), generating composite fallback.")
 
-        # Fallback composite
-        leg1 = self._generate_fallback_route(origin_lng, origin_lat, stop_lng, stop_lat)
-        leg2 = self._generate_fallback_route(stop_lng, stop_lat, dest_lng, dest_lat)
+        # Fallback composite across legs
+        total_dist = 0.0
+        total_dur = 0.0
+        combined_coords = []
+        combined_steps = []
+        for i in range(len(waypoints) - 1):
+            leg = self._generate_fallback_route(
+                waypoints[i][0], waypoints[i][1], waypoints[i + 1][0], waypoints[i + 1][1]
+            )
+            total_dist += leg["distance_km"]
+            total_dur += leg["duration_min"]
+            if i == 0:
+                combined_coords.extend(leg["coordinates"])
+            else:
+                combined_coords.extend(leg["coordinates"][1:])
+            combined_steps.append({
+                "instruction": f"Leg {i + 1}: Travel to waypoint {i + 1}",
+                "distance_km": leg["distance_km"],
+                "duration_min": leg["duration_min"],
+            })
+
         return {
             "status": "fallback",
-            "distance_km": round(leg1["distance_km"] + leg2["distance_km"], 2),
-            "duration_min": round(leg1["duration_min"] + leg2["duration_min"], 1),
-            "coordinates": leg1["coordinates"] + leg2["coordinates"][1:],
-            "summary": "Interpolated Multi-stop Route",
-            "steps": [
-                {"instruction": "Head towards Charging Stop", "distance_km": leg1["distance_km"], "duration_min": leg1["duration_min"]},
-                {"instruction": "Recharge at EV Station", "distance_km": 0.0, "duration_min": 15.0},
-                {"instruction": "Continue to final destination", "distance_km": leg2["distance_km"], "duration_min": leg2["duration_min"]},
-            ],
+            "distance_km": round(total_dist, 2),
+            "duration_min": round(total_dur, 1),
+            "coordinates": combined_coords,
+            "summary": f"Interpolated Multi-stop Route ({len(waypoints) - 2} stops)",
+            "steps": combined_steps,
         }
+
+    def get_route_via_waypoint(
+        self,
+        origin_lng: float,
+        origin_lat: float,
+        stop_lng: float,
+        stop_lat: float,
+        dest_lng: float,
+        dest_lat: float,
+    ) -> Dict[str, Any]:
+        """
+        Calculate driving route passing through an intermediate charging station stop:
+        Origin -> Charging Station -> Destination.
+        """
+        return self.get_route_via_waypoints([
+            (origin_lng, origin_lat),
+            (stop_lng, stop_lat),
+            (dest_lng, dest_lat),
+        ])
 
     @staticmethod
     def _generate_fallback_route(

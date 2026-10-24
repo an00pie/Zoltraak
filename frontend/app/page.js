@@ -706,6 +706,7 @@ export default function Home() {
         setOrigin={setOrigin}
         destination={destination}
         setDestination={setDestination}
+        presetCities={presetCities}
         batterySoC={batterySoC}
         setBatterySoC={setBatterySoC}
         minReserveSoC={minReserveSoC}

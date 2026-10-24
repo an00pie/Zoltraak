@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { MapPin, Search, X, Crosshair, Loader2, Compass } from "lucide-react";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+
 export default function LocationAutocomplete({
   label,
   value,
@@ -69,7 +71,7 @@ export default function LocationAutocomplete({
     timeoutRef.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `http://127.0.0.1:8000/api/v1/geo/search?q=${encodeURIComponent(text.trim())}&limit=8`
+          `${API_BASE_URL}/api/v1/geo/search?q=${encodeURIComponent(text.trim())}&limit=8`
         );
         if (res.ok) {
           const places = await res.json();
@@ -115,7 +117,7 @@ export default function LocationAutocomplete({
         const lon = pos.coords.longitude;
         try {
           const res = await fetch(
-            `http://127.0.0.1:8000/api/v1/geo/reverse?latitude=${lat}&longitude=${lon}`
+            `${API_BASE_URL}/api/v1/geo/reverse?latitude=${lat}&longitude=${lon}`
           );
           if (res.ok) {
             const data = await res.json();

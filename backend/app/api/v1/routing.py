@@ -120,56 +120,56 @@ def plan_ev_route(
         min_reserve_soc=request.min_reserve_soc,
     )
 
-    # 3. Energy Feasibility Check without stops
-    energy_needed_kwh = direct_dist_km * CorridorAnalyzer.EV_CONSUMPTION_KWH_PER_KM
-    available_energy_kwh = request.battery_capacity_kwh * (request.current_soc / 100.0)
-    direct_arrival_soc = round(
-        max(0.0, ((available_energy_kwh - energy_needed_kwh) / request.battery_capacity_kwh) * 100.0),
-        1,
-    )
-    is_direct_feasible = (available_energy_kwh - energy_needed_kwh) >= (
-        request.battery_capacity_kwh * (request.min_reserve_soc / 100.0)
+    # 3. Comprehensive Multi-Stop Battery Simulation & Itinerary Planning
+    itinerary = CorridorAnalyzer.plan_multi_stop_itinerary(
+        origin_lat=origin.latitude,
+        origin_lng=origin.longitude,
+        dest_lat=dest.latitude,
+        dest_lng=dest.longitude,
+        direct_dist_km=direct_dist_km,
+        current_soc=request.current_soc,
+        battery_capacity_kwh=request.battery_capacity_kwh,
+        min_reserve_soc=request.min_reserve_soc,
+        candidates=candidates,
+        selected_station_id=request.selected_station_id,
     )
 
-    # 4. Multi-stop Routing: auto-select most optimal station or use user preference
-    target_station_id = None
-    if request.selected_station_id is not None and request.selected_station_id > 0:
-        target_station_id = request.selected_station_id
-    elif request.selected_station_id is None and request.auto_select_optimal and candidates:
-        # Prioritize 'optimal' tier candidates with minimal detour, then 'acceptable'
-        optimal_candidates = [c for c in candidates if c.get("tier") == "optimal"]
-        if optimal_candidates:
-            target_station_id = optimal_candidates[0]["id"]
-        elif candidates:
-            target_station_id = candidates[0]["id"]
+    stops = itinerary["stops"]
+    battery_warning = itinerary["battery_warning"]
 
+    # 4. Multi-stop OSRM Routing passing through all designated charging stops
     routed_via_station = None
-    if target_station_id:
-        station = db.query(Station).filter(Station.id == target_station_id).first()
-        if station:
-            stop_route = osrm_client.get_route_via_waypoint(
-                origin_lng=origin.longitude,
-                origin_lat=origin.latitude,
-                stop_lng=station.longitude,
-                stop_lat=station.latitude,
-                dest_lng=dest.longitude,
-                dest_lat=dest.latitude,
-            )
-            detour_km = round(stop_route["distance_km"] - direct_dist_km, 2)
-            routed_via_station = {
-                "station_id": station.id,
-                "station_name": station.name,
-                "station_latitude": station.latitude,
-                "station_longitude": station.longitude,
-                "total_distance_km": stop_route["distance_km"],
-                "total_duration_min": stop_route["duration_min"],
-                "detour_km": max(0.0, detour_km),
-                "detour_duration_min": max(0.0, round(stop_route["duration_min"] - direct_duration_min, 1)),
-                "coordinates": stop_route["coordinates"],
-                "summary": stop_route.get("summary", f"Via {station.name}"),
-                "steps": stop_route.get("steps", []),
-                "is_auto_selected": request.selected_station_id is None,
-            }
+    if stops:
+        waypoints = (
+            [(origin.longitude, origin.latitude)]
+            + [(s["longitude"], s["latitude"]) for s in stops]
+            + [(dest.longitude, dest.latitude)]
+        )
+        multi_route = osrm_client.get_route_via_waypoints(waypoints)
+        detour_km = round(multi_route["distance_km"] - direct_dist_km, 2)
+
+        stop_names = " ➔ ".join(s["name"] for s in stops)
+        summary = f"Via {stops[0]['name']}" if len(stops) == 1 else f"{len(stops)} Charging Stops: {stop_names}"
+
+        routed_via_station = {
+            "station_id": stops[0]["station_id"],
+            "station_name": stops[0]["name"],
+            "station_latitude": stops[0]["latitude"],
+            "station_longitude": stops[0]["longitude"],
+            "total_distance_km": multi_route["distance_km"],
+            "total_duration_min": round(multi_route["duration_min"] + itinerary["total_charging_time_min"], 1),
+            "driving_duration_min": multi_route["duration_min"],
+            "charging_duration_min": itinerary["total_charging_time_min"],
+            "detour_km": max(0.0, detour_km),
+            "detour_duration_min": max(0.0, round(multi_route["duration_min"] - direct_duration_min, 1)),
+            "coordinates": multi_route["coordinates"],
+            "summary": summary,
+            "steps": multi_route.get("steps", []),
+            "stops": stops,
+            "total_stops": len(stops),
+            "final_arrival_soc": itinerary["final_arrival_soc"],
+            "is_auto_selected": request.selected_station_id is None,
+        }
 
     return {
         "origin": origin.model_dump(),
@@ -178,15 +178,21 @@ def plan_ev_route(
             "current_soc": request.current_soc,
             "battery_capacity_kwh": request.battery_capacity_kwh,
             "min_reserve_soc": request.min_reserve_soc,
-            "available_range_km": round((available_energy_kwh / CorridorAnalyzer.EV_CONSUMPTION_KWH_PER_KM), 1),
-            "is_direct_feasible": is_direct_feasible,
-            "direct_arrival_soc": direct_arrival_soc,
+            "available_range_km": itinerary["available_range_km"],
+            "usable_range_km": itinerary["usable_range_km"],
+            "is_direct_feasible": itinerary["is_direct_feasible"],
+            "direct_arrival_soc": itinerary["direct_arrival_soc"],
+            "final_arrival_soc": itinerary["final_arrival_soc"],
+            "battery_warning": battery_warning,
         },
         "direct_route": direct_route,
         "routed_via_station": routed_via_station,
+        "charging_stops": stops,
+        "battery_warning": battery_warning,
         "candidate_stations": candidates,
         "metrics": {
             "total_candidates": len(candidates),
+            "total_stops_needed": len(stops),
             "optimal_count": sum(1 for c in candidates if c["tier"] == "optimal"),
             "acceptable_count": sum(1 for c in candidates if c["tier"] == "acceptable"),
             "suboptimal_count": sum(1 for c in candidates if c["tier"] == "suboptimal"),

@@ -97,30 +97,46 @@ export default function MapView({
   const activePopupRef = useRef(null);
   const originMarkerRef = useRef(null);
   const destMarkerRef = useRef(null);
-  const stationStopMarkerRef = useRef(null);
+  const stationStopMarkersRef = useRef([]);
   const onViewportChangeRef = useRef(onViewportChange);
+  const communityChargersRef = useRef(communityChargers);
+
+  useEffect(() => {
+    communityChargersRef.current = communityChargers;
+  }, [communityChargers]);
 
   useEffect(() => {
     onViewportChangeRef.current = onViewportChange;
   }, [onViewportChange]);
 
   const [showGpsSteps, setShowGpsSteps] = useState(false);
+  const [showStopsList, setShowStopsList] = useState(false);
 
   // Active route details for Google Maps-style navigation HUD
   const activeRouteDetails = useMemo(() => {
     if (!routeData) return null;
+    const stops = routeData.charging_stops || (routeData.routed_via_station?.stops || []);
+    const batteryWarning = routeData.battery_warning || routeData.battery_parameters?.battery_warning;
+    const arrivalSoc = routeData.battery_parameters?.final_arrival_soc ?? routeData.battery_parameters?.direct_arrival_soc ?? 25;
+
     if (routeData.routed_via_station) {
       return {
         isMultiStop: true,
-        summary: routeData.routed_via_station.summary || "Corridor via Charging Stop",
+        summary: routeData.routed_via_station.summary || (stops.length > 0 ? `${stops.length} Charging Stops` : "Corridor via Charging Stop"),
         distanceKm: routeData.routed_via_station.total_distance_km,
         durationMin: routeData.routed_via_station.total_duration_min,
+        drivingDurationMin: routeData.routed_via_station.driving_duration_min,
+        chargingDurationMin: routeData.routed_via_station.charging_duration_min,
         stationName: routeData.routed_via_station.station_name,
         stationLat: routeData.routed_via_station.station_latitude,
         stationLng: routeData.routed_via_station.station_longitude,
         detourKm: routeData.routed_via_station.detour_km,
         detourMin: routeData.routed_via_station.detour_duration_min,
         steps: routeData.routed_via_station.steps || [],
+        stops: stops,
+        totalStops: stops.length,
+        arrivalSoc: arrivalSoc,
+        batteryWarning: batteryWarning,
       };
     }
     if (routeData.direct_route) {
@@ -130,6 +146,10 @@ export default function MapView({
         distanceKm: routeData.direct_route.distance_km,
         durationMin: routeData.direct_route.duration_min,
         steps: routeData.direct_route.steps || [],
+        stops: [],
+        totalStops: 0,
+        arrivalSoc: arrivalSoc,
+        batteryWarning: batteryWarning,
       };
     }
     return null;
@@ -949,22 +969,34 @@ export default function MapView({
       originMarkerRef.current = null;
     }
 
-    // 2. Charging Stop Pin S (when multi-stop via charger is chosen)
-    if (activeRouteDetails?.isMultiStop && activeRouteDetails.stationLat) {
-      if (!stationStopMarkerRef.current) {
+    // 2. Charging Stop Pins (Supports multiple charging stops along the corridor)
+    if (stationStopMarkersRef.current.length > 0) {
+      stationStopMarkersRef.current.forEach((m) => m.remove());
+      stationStopMarkersRef.current = [];
+    }
+
+    if (activeRouteDetails?.stops && activeRouteDetails.stops.length > 0) {
+      activeRouteDetails.stops.forEach((stop, idx) => {
         const el = document.createElement("div");
-        el.className =
-          "px-2 py-0.5 rounded-full bg-amber-500 border border-white shadow-md flex items-center gap-1 font-semibold text-[10px] text-zinc-950";
-        el.innerHTML = `<span>⚡</span><span>${escapeHtml(activeRouteDetails.stationName.split(" ")[0])}</span>`;
-        stationStopMarkerRef.current = new maplibregl.Marker({ element: el })
-          .setLngLat([activeRouteDetails.stationLng, activeRouteDetails.stationLat])
+        const isComm = stop.is_community_host;
+        el.className = `px-2 py-0.5 rounded-full border border-white shadow-xl flex items-center gap-1 font-semibold text-[10px] text-white cursor-pointer transition-transform hover:scale-105 ${
+          isComm ? "bg-blue-600" : "bg-amber-600"
+        }`;
+        el.innerHTML = `<span>${isComm ? "🏠" : "⚡"}</span><span>Stop ${stop.stop_number || idx + 1}: ${escapeHtml((stop.name || "").split(" ")[0])}</span>`;
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat([stop.longitude, stop.latitude])
           .addTo(mapRef.current);
-      } else {
-        stationStopMarkerRef.current.setLngLat([activeRouteDetails.stationLng, activeRouteDetails.stationLat]);
-      }
-    } else if (stationStopMarkerRef.current) {
-      stationStopMarkerRef.current.remove();
-      stationStopMarkerRef.current = null;
+        stationStopMarkersRef.current.push(marker);
+      });
+    } else if (activeRouteDetails?.isMultiStop && activeRouteDetails.stationLat) {
+      const el = document.createElement("div");
+      el.className =
+        "px-2 py-0.5 rounded-full bg-amber-500 border border-white shadow-md flex items-center gap-1 font-semibold text-[10px] text-zinc-950";
+      el.innerHTML = `<span>⚡</span><span>${escapeHtml(activeRouteDetails.stationName.split(" ")[0])}</span>`;
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([activeRouteDetails.stationLng, activeRouteDetails.stationLat])
+        .addTo(mapRef.current);
+      stationStopMarkersRef.current.push(marker);
     }
 
     // 3. Destination Pin B
@@ -1010,9 +1042,21 @@ export default function MapView({
   // Update Community Home Chargers Source Data
   useEffect(() => {
     if (!mapRef.current) return;
-    const source = mapRef.current.getSource("community-chargers-source");
-    if (source && communityChargers) {
-      source.setData(convertCommunityChargersToGeoJson(communityChargers));
+    const map = mapRef.current;
+
+    const updateCommData = () => {
+      const source = map.getSource("community-chargers-source");
+      if (source) {
+        source.setData(convertCommunityChargersToGeoJson(communityChargers));
+      } else if (map.isStyleLoaded()) {
+        addCommunityChargersSourceAndLayers(map);
+      }
+    };
+
+    if (map.isStyleLoaded()) {
+      updateCommData();
+    } else {
+      map.once("styledata", updateCommData);
     }
   }, [communityChargers]);
 
@@ -1117,6 +1161,29 @@ export default function MapView({
       {/* Google Maps GPS Navigation Floating Banner */}
       {activeRouteDetails && (
         <div className="absolute top-28 left-3 right-3 sm:left-auto sm:right-6 sm:w-[480px] z-20 flex flex-col pointer-events-none animate-in slide-in-from-top-2 duration-200">
+          {/* Critical Battery Warning Banner */}
+          {activeRouteDetails.batteryWarning && (
+            <div className="bg-rose-950/95 backdrop-blur-md border border-rose-700/80 rounded-2xl shadow-2xl p-3 px-3.5 mb-2 pointer-events-auto w-full text-xs animate-in slide-in-from-top-1">
+              <div className="flex items-start gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-rose-600/30 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="text-sm font-bold">⚠️</span>
+                </div>
+                <div>
+                  <p className="font-bold text-rose-100">{activeRouteDetails.batteryWarning.title}</p>
+                  <p className="text-[11px] text-rose-300 mt-0.5 leading-relaxed">{activeRouteDetails.batteryWarning.message}</p>
+                  {activeRouteDetails.batteryWarning.available_range_km && (
+                    <div className="mt-1.5 flex gap-3 text-[10px] font-mono text-rose-400">
+                      <span>Available Range: ~{activeRouteDetails.batteryWarning.available_range_km} km</span>
+                      {activeRouteDetails.batteryWarning.nearest_station_km && (
+                        <span>Nearest Charger: {activeRouteDetails.batteryWarning.nearest_station_km} km</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-zinc-950/95 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-2xl p-3 px-3.5 flex flex-wrap items-center justify-between gap-3 pointer-events-auto w-full text-xs">
             {/* Left: Direction Icon & Highway Summary */}
             <div className="flex items-center gap-2.5">
@@ -1128,9 +1195,13 @@ export default function MapView({
                   <span className="font-semibold text-xs text-zinc-100">
                     {activeRouteDetails.summary}
                   </span>
-                  {activeRouteDetails.isMultiStop && (
+                  {activeRouteDetails.totalStops > 0 ? (
                     <span className="px-1.5 py-0.2 rounded bg-amber-950/60 text-amber-400 border border-amber-800/60 text-[10px] font-medium">
-                      1 Stop
+                      {activeRouteDetails.totalStops} {activeRouteDetails.totalStops === 1 ? "Stop" : "Stops"}
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.2 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-800/60 text-[10px] font-medium">
+                      Direct Route
                     </span>
                   )}
                 </div>
@@ -1146,7 +1217,7 @@ export default function MapView({
                   </span>
                   <span>•</span>
                   <span className="text-emerald-400 font-mono">
-                    ~{routeData?.battery_parameters?.direct_arrival_soc ?? 25}% SoC
+                    ~{activeRouteDetails.arrivalSoc}% Arrival SoC
                   </span>
                 </div>
               </div>
@@ -1154,6 +1225,17 @@ export default function MapView({
 
             {/* Right: Actions */}
             <div className="flex items-center gap-1.5 ml-auto">
+              {activeRouteDetails.stops?.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setShowStopsList(!showStopsList)}
+                  className="px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-300 font-medium rounded-lg text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <Zap className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Stops ({activeRouteDetails.stops.length})</span>
+                  {showStopsList ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                </button>
+              )}
               {activeRouteDetails.steps?.length > 0 && (
                 <button
                   type="button"
@@ -1185,6 +1267,43 @@ export default function MapView({
               )}
             </div>
           </div>
+
+          {/* Planned Charging Stops Dropdown Sheet */}
+          {showStopsList && activeRouteDetails.stops?.length > 0 && (
+            <div className="bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl p-3 mt-1.5 max-w-2xl w-full max-h-72 overflow-y-auto pointer-events-auto space-y-1.5 text-xs animate-in slide-in-from-top-1 duration-150">
+              <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800 text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                <span>Multi-Stop Charging Itinerary</span>
+                <span className="text-amber-400 font-mono">+{activeRouteDetails.chargingDurationMin}m Total Charging</span>
+              </div>
+              {activeRouteDetails.stops.map((stop, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 bg-zinc-900/70 border border-zinc-800 rounded-lg flex items-center justify-between gap-2.5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
+                      stop.is_community_host ? "bg-blue-600 text-white" : "bg-amber-600 text-white"
+                    }`}>
+                      {stop.stop_number || idx + 1}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-zinc-100 text-xs">{stop.name}</p>
+                      <p className="text-[10px] text-zinc-400">
+                        {stop.is_community_host ? "🏠 Community Home Host" : "⚡ Public Fast Charger"} • {stop.max_power_kw} kW
+                        {stop.city ? ` • ${stop.city}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] font-mono shrink-0">
+                    <span className="text-rose-400">{stop.arrival_soc}%</span>
+                    <span className="text-zinc-500"> ➔ </span>
+                    <span className="text-emerald-400">{stop.departure_soc}%</span>
+                    <p className="text-zinc-400">+{stop.charge_time_min} mins</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Turn-by-Turn GPS Directions Dropdown Sheet */}
           {showGpsSteps && activeRouteDetails.steps?.length > 0 && (
