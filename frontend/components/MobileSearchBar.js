@@ -8,9 +8,6 @@ import {
   MapPin,
   Zap,
   Home,
-  Layers,
-  QrCode,
-  Crosshair,
 } from "lucide-react";
 
 export default function MobileSearchBar({
@@ -83,7 +80,7 @@ export default function MobileSearchBar({
           onChange={(e) => setSearchQuery(e.target.value)}
           onFocus={() => placeSuggestions.length > 0 && setShowDropdown(true)}
           placeholder="Where would you like to Charge?"
-          className="w-full bg-transparent text-xs sm:text-sm text-zinc-900 placeholder-zinc-500 focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-xs sm:text-sm text-zinc-900 placeholder-zinc-500 focus:outline-none"
         />
 
         {searchQuery ? (
@@ -130,10 +127,14 @@ export default function MobileSearchBar({
       </div>
 
       {/* 2. Quick Filter Chips matching Image 4 */}
-      <div className="flex items-center space-x-2 overflow-x-auto no-scrollbar py-0.5 px-1">
+      <div className="mobile-filter-chips flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-1">
         <button
           type="button"
-          onClick={() => setActiveFilterChip("available")}
+          onClick={() => {
+            setActiveFilterChip("available");
+            onChangeStationFilterMode?.("all");
+            setShowCommunityChargers?.(true);
+          }}
           className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
             activeFilterChip === "available"
               ? "bg-zinc-950 text-white shadow-sm"
@@ -145,7 +146,11 @@ export default function MobileSearchBar({
 
         <button
           type="button"
-          onClick={() => setActiveFilterChip("all")}
+          onClick={() => {
+            setActiveFilterChip("all");
+            onChangeStationFilterMode?.("all");
+            setShowCommunityChargers?.(true);
+          }}
           className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 ${
             activeFilterChip === "all"
               ? "bg-zinc-950 text-white shadow-sm"
@@ -174,21 +179,9 @@ export default function MobileSearchBar({
           }`}
         >
           <Home className="w-3.5 h-3.5" />
-          <span>Home Hosts (Blue)</span>
+          <span>Alpha Guaranteed</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => setShowH3Overlay(!showH3Overlay)}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all shrink-0 flex items-center space-x-1 ${
-            showH3Overlay
-              ? "bg-zinc-800 text-white"
-              : "bg-white/90 text-zinc-700 border border-zinc-200"
-          }`}
-        >
-          <Layers className="w-3 h-3" />
-          <span>H3 Grid</span>
-        </button>
       </div>
     </div>
   );

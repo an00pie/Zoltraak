@@ -70,7 +70,7 @@ export default function MobileBottomNav({
   ];
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-30 pointer-events-auto bg-white/95 backdrop-blur-md border-t border-zinc-200/90 py-2 px-3 shadow-lg">
+    <div className="fixed bottom-0 inset-x-0 z-30 pointer-events-auto bg-white/95 backdrop-blur-md border-t border-zinc-200/90 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] px-3 shadow-lg">
       <div className="max-w-md mx-auto flex items-center justify-around">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
@@ -79,7 +79,7 @@ export default function MobileBottomNav({
               key={tab.id}
               type="button"
               onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all ${
+              className={`flex flex-col items-center justify-center py-1 px-2 sm:px-3 rounded-2xl transition-all min-w-0 flex-1 ${
                 isActive
                   ? "bg-zinc-100/90 text-zinc-900"
                   : "text-zinc-500 hover:text-zinc-800"

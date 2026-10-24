@@ -51,12 +51,12 @@ export default function MapFloatingControls({
   const isOwner = currentUser?.role === "homeowner" || currentUser?.role === "operator";
 
   return (
-    <div className="absolute right-3 sm:right-4 top-24 z-30 flex flex-col items-end space-y-2 pointer-events-auto">
+    <div className="map-floating-controls absolute right-3 sm:right-4 top-24 z-30 flex flex-col items-end space-y-2 pointer-events-auto">
       {/* 1. Route A -> B Button (Highlighted) */}
       <button
         type="button"
         onClick={onOpenRoutePlanner}
-        className={`flex items-center space-x-2 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl shadow-xl font-bold text-xs transition-all active:scale-95 border ${
+        className={`hidden sm:flex items-center space-x-2 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl shadow-xl font-bold text-xs transition-all active:scale-95 border ${
           hasActiveRoute
             ? "bg-blue-600 hover:bg-blue-500 text-white border-blue-400"
             : "bg-white hover:bg-zinc-50 text-zinc-900 border-zinc-200"
@@ -78,8 +78,18 @@ export default function MapFloatingControls({
         <Crosshair className={`w-5 h-5 text-amber-600 ${isLocating ? "animate-spin" : ""}`} />
       </button>
 
+      <button
+        type="button"
+        onClick={onOpenRoutePlanner}
+        aria-label={hasActiveRoute ? "Edit route" : "Plan a route"}
+        className="flex sm:hidden w-10 h-10 bg-zinc-950 text-white active:scale-95 rounded-full shadow-xl border border-zinc-800 items-center justify-center transition-all"
+        title={hasActiveRoute ? "Edit route" : "Plan a route"}
+      >
+        <Navigation className="w-5 h-5" />
+      </button>
+
       {/* 3. Station Filter: All vs Home Hosts (Blue) vs Public Fast (Green) */}
-      <div className="relative">
+      <div className="relative hidden sm:block">
         <button
           type="button"
           onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -136,7 +146,7 @@ export default function MapFloatingControls({
       <button
         type="button"
         onClick={onOpenOwnerDashboard}
-        className="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border bg-zinc-900 text-zinc-200 border-zinc-700 hover:border-blue-500"
+        className="hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border bg-zinc-900 text-zinc-200 border-zinc-700 hover:border-blue-500"
         title="Manage your EV Charging Station / Home Charger Setup"
       >
         {isOwner ? (
@@ -155,7 +165,7 @@ export default function MapFloatingControls({
       <button
         type="button"
         onClick={onOpenAuthModal}
-        className="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border bg-zinc-950/90 text-zinc-300 border-zinc-800 hover:bg-zinc-900"
+        className="hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border bg-zinc-950/90 text-zinc-300 border-zinc-800 hover:bg-zinc-900"
         title="Switch Account Role (Customer / Home Host / Station Operator)"
       >
         <User className="w-3.5 h-3.5 text-blue-400" />
@@ -169,7 +179,7 @@ export default function MapFloatingControls({
       <button
         type="button"
         onClick={onToggleClustering}
-        className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border ${
+        className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border ${
           clusteringEnabled
             ? "bg-zinc-900 text-white border-zinc-700"
             : "bg-white text-zinc-600 border-zinc-200 hover:text-black"
@@ -187,7 +197,7 @@ export default function MapFloatingControls({
       <button
         type="button"
         onClick={onToggleH3}
-        className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border ${
+        className={`hidden sm:flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl shadow-lg text-xs font-semibold transition-all border ${
           showH3Overlay
             ? "bg-zinc-900 text-white border-zinc-700"
             : "bg-white text-zinc-600 border-zinc-200 hover:text-black"
@@ -202,7 +212,7 @@ export default function MapFloatingControls({
       </button>
 
       {/* 8. Map Style Switcher Popover */}
-      <div className="relative">
+      <div className="relative hidden sm:block">
         <button
           type="button"
           onClick={() => setShowStyleMenu(!showStyleMenu)}

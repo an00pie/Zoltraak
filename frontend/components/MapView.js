@@ -65,6 +65,15 @@ function escapeHtml(str) {
     .replace(/'/g, "&#039;");
 }
 
+function getValidLngLat(location) {
+  if (!location || location.longitude == null || location.latitude == null) return null;
+  const longitude = Number(location.longitude);
+  const latitude = Number(location.latitude);
+  if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return null;
+  if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) return null;
+  return [longitude, latitude];
+}
+
 export default function MapView({
   stations = [],
   candidateStations = [],
@@ -676,7 +685,7 @@ export default function MapView({
         layout: { visibility: commVisibility },
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 11, 14, 15, 20],
-          "circle-color": "#38bdf8",
+          "circle-color": "#34d399",
           "circle-opacity": 0.45,
           "circle-blur": 0.4,
         },
@@ -693,7 +702,7 @@ export default function MapView({
         layout: { visibility: commVisibility },
         paint: {
           "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6.5, 11, 10, 15, 14],
-          "circle-color": "#2563eb",
+          "circle-color": "#10b981",
           "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff",
         },
@@ -944,8 +953,15 @@ export default function MapView({
   // Center camera on full active route bounds
   const handleFitRouteBounds = () => {
     if (!mapRef.current || !routeCoordinates || routeCoordinates.length < 2) return;
+    const validRouteCoordinates = routeCoordinates.filter((coordinate) =>
+      Array.isArray(coordinate) && coordinate.length >= 2 &&
+      Number.isFinite(Number(coordinate[0])) && Number.isFinite(Number(coordinate[1])) &&
+      Number(coordinate[0]) >= -180 && Number(coordinate[0]) <= 180 &&
+      Number(coordinate[1]) >= -90 && Number(coordinate[1]) <= 90
+    );
+    if (validRouteCoordinates.length < 2) return;
     const bounds = new maplibregl.LngLatBounds();
-    routeCoordinates.forEach((coord) => bounds.extend(coord));
+    validRouteCoordinates.forEach((coord) => bounds.extend(coord));
     mapRef.current.fitBounds(bounds, {
       padding: { top: 140, bottom: 90, left: 470, right: 90 },
       duration: 1200,
@@ -984,17 +1000,18 @@ export default function MapView({
     if (!mapRef.current) return;
 
     // 1. Origin Pin A
-    if (originLocation) {
+    const originCoordinates = getValidLngLat(originLocation);
+    if (originCoordinates) {
       if (!originMarkerRef.current) {
         const el = document.createElement("div");
         el.className =
           "w-5 h-5 rounded-full bg-emerald-600 border border-white shadow-md flex items-center justify-center font-bold text-[10px] text-white";
         el.innerText = "A";
         originMarkerRef.current = new maplibregl.Marker({ element: el })
-          .setLngLat([originLocation.longitude, originLocation.latitude])
+          .setLngLat(originCoordinates)
           .addTo(mapRef.current);
       } else {
-        originMarkerRef.current.setLngLat([originLocation.longitude, originLocation.latitude]);
+        originMarkerRef.current.setLngLat(originCoordinates);
       }
     } else if (originMarkerRef.current) {
       originMarkerRef.current.remove();
@@ -1009,11 +1026,13 @@ export default function MapView({
 
     if (activeRouteDetails?.stops && activeRouteDetails.stops.length > 0) {
       activeRouteDetails.stops.forEach((stop, idx) => {
+        const stopCoordinates = getValidLngLat(stop);
+        if (!stopCoordinates) return;
         const el = document.createElement("div");
         const isComm = stop.is_community_host;
         el.className = `px-2.5 py-1 rounded-full border-2 border-white shadow-2xl flex items-center gap-1.5 font-bold text-[11px] text-white cursor-pointer transition-all hover:scale-110 active:scale-95 ${
           isComm
-            ? "bg-blue-600 ring-4 ring-blue-500/50"
+            ? "bg-emerald-600 ring-4 ring-emerald-500/50"
             : "bg-amber-600 ring-4 ring-amber-500/50"
         }`;
         const chargeMins = Math.round(stop.charge_time_min || 20);
@@ -1021,54 +1040,61 @@ export default function MapView({
         el.addEventListener("click", (e) => {
           e.stopPropagation();
           if (mapRef.current) {
-            mapRef.current.flyTo({ center: [stop.longitude, stop.latitude], zoom: 14, speed: 1.2 });
+            mapRef.current.flyTo({ center: stopCoordinates, zoom: 14, speed: 1.2 });
           }
           if (onSelectStation) {
             onSelectStation(stop);
           }
         });
         const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
-          .setLngLat([stop.longitude, stop.latitude])
+          .setLngLat(stopCoordinates)
           .addTo(mapRef.current);
         stationStopMarkersRef.current.push(marker);
       });
-    } else if (activeRouteDetails?.isMultiStop && activeRouteDetails.stationLat) {
-      const el = document.createElement("div");
-      el.className =
-        "px-2.5 py-1 rounded-full bg-amber-500 ring-4 ring-amber-400/50 border-2 border-white shadow-2xl flex items-center gap-1.5 font-bold text-[11px] text-zinc-950 cursor-pointer hover:scale-110";
-      el.innerHTML = `<span>⚡</span><span>Stop: ${escapeHtml((activeRouteDetails.stationName || "Charger").split(" ")[0])}</span>`;
-      el.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (mapRef.current) {
-          mapRef.current.flyTo({ center: [activeRouteDetails.stationLng, activeRouteDetails.stationLat], zoom: 14 });
-        }
-        if (onSelectStation) {
-          onSelectStation({
-            id: activeRouteDetails.stationId,
-            name: activeRouteDetails.stationName,
-            latitude: activeRouteDetails.stationLat,
-            longitude: activeRouteDetails.stationLng,
-          });
-        }
+    } else if (activeRouteDetails?.isMultiStop) {
+      const stationCoordinates = getValidLngLat({
+        longitude: activeRouteDetails.stationLng,
+        latitude: activeRouteDetails.stationLat,
       });
-      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([activeRouteDetails.stationLng, activeRouteDetails.stationLat])
-        .addTo(mapRef.current);
-      stationStopMarkersRef.current.push(marker);
+      if (stationCoordinates) {
+        const el = document.createElement("div");
+        el.className =
+          "px-2.5 py-1 rounded-full bg-amber-500 ring-4 ring-amber-400/50 border-2 border-white shadow-2xl flex items-center gap-1.5 font-bold text-[11px] text-zinc-950 cursor-pointer hover:scale-110";
+        el.innerHTML = `<span>⚡</span><span>Stop: ${escapeHtml((activeRouteDetails.stationName || "Charger").split(" ")[0])}</span>`;
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (mapRef.current) {
+            mapRef.current.flyTo({ center: stationCoordinates, zoom: 14 });
+          }
+          if (onSelectStation) {
+            onSelectStation({
+              id: activeRouteDetails.stationId,
+              name: activeRouteDetails.stationName,
+              latitude: activeRouteDetails.stationLat,
+              longitude: activeRouteDetails.stationLng,
+            });
+          }
+        });
+        const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
+          .setLngLat(stationCoordinates)
+          .addTo(mapRef.current);
+        stationStopMarkersRef.current.push(marker);
+      }
     }
 
     // 3. Destination Pin B
-    if (destLocation) {
+    const destinationCoordinates = getValidLngLat(destLocation);
+    if (destinationCoordinates) {
       if (!destMarkerRef.current) {
         const el = document.createElement("div");
         el.className =
           "w-5 h-5 rounded-full bg-rose-600 border border-white shadow-md flex items-center justify-center font-bold text-[10px] text-white";
         el.innerText = "B";
         destMarkerRef.current = new maplibregl.Marker({ element: el })
-          .setLngLat([destLocation.longitude, destLocation.latitude])
+          .setLngLat(destinationCoordinates)
           .addTo(mapRef.current);
       } else {
-        destMarkerRef.current.setLngLat([destLocation.longitude, destLocation.latitude]);
+        destMarkerRef.current.setLngLat(destinationCoordinates);
       }
     } else if (destMarkerRef.current) {
       destMarkerRef.current.remove();
@@ -1159,6 +1185,7 @@ export default function MapView({
   useEffect(() => {
     if (!mapRef.current || !focusCoordinate) return;
     const [lng, lat] = focusCoordinate;
+    if (!getValidLngLat({ longitude: lng, latitude: lat })) return;
     mapRef.current.flyTo({
       center: [lng, lat],
       zoom: 14,
@@ -1219,7 +1246,7 @@ export default function MapView({
       {/* Google Maps GPS Navigation Floating Banner */}
       {/* Google Maps GPS Navigation Floating Banner (Top-Left - Never overlaps right floating controls) */}
       {activeRouteDetails && (
-        <div className="absolute top-20 left-3 sm:left-6 sm:w-[480px] max-w-[calc(100vw-24px)] z-30 flex flex-col pointer-events-none animate-in slide-in-from-top-2 duration-200">
+        <div className="route-summary-banner absolute top-20 left-3 sm:left-6 sm:w-[480px] max-w-[calc(100vw-24px)] z-30 flex flex-col pointer-events-none animate-in slide-in-from-top-2 duration-200">
           {/* Critical Battery Warning Banner */}
           {activeRouteDetails.batteryWarning && (
             <div className="bg-rose-950/95 backdrop-blur-md border border-rose-700/80 rounded-2xl shadow-2xl p-3 px-3.5 mb-2 pointer-events-auto w-full text-xs animate-in slide-in-from-top-1">
@@ -1287,11 +1314,14 @@ export default function MapView({
               {(activeRouteDetails.stops?.length > 0 || candidateStations?.length > 0) && (
                 <button
                   type="button"
-                  onClick={() => setShowStopsList(!showStopsList)}
+                  onClick={() => {
+                    if (!showStopsList) setActiveStopsTab("nearby");
+                    setShowStopsList(!showStopsList);
+                  }}
                   className="px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-300 font-medium rounded-lg text-xs transition-colors flex items-center gap-1.5"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Stops ({activeRouteDetails.stops?.length || 0})</span>
+                  <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>{showStopsList ? "Charger Options" : "Choose Charger"} ({candidateStations?.length || 0})</span>
                   {showStopsList ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </button>
               )}
@@ -1354,7 +1384,7 @@ export default function MapView({
                   }`}
                 >
                   <Home className="w-3 h-3 text-blue-400" />
-                  <span>Available Nearby ({candidateStations?.length || 0})</span>
+                  <span>Choose a Charger ({candidateStations?.length || 0})</span>
                 </button>
               </div>
 
@@ -1374,8 +1404,10 @@ export default function MapView({
                       <div
                         key={idx}
                         onClick={() => {
+                          const stopCoordinates = getValidLngLat(stop);
+                          if (!stopCoordinates) return;
                           if (mapRef.current) {
-                            mapRef.current.flyTo({ center: [stop.longitude, stop.latitude], zoom: 14 });
+                            mapRef.current.flyTo({ center: stopCoordinates, zoom: 14 });
                           }
                           if (onSelectStation) onSelectStation(stop);
                         }}
@@ -1383,7 +1415,7 @@ export default function MapView({
                       >
                         <div className="flex items-center gap-2">
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                            stop.is_community_host ? "bg-blue-600 text-white" : "bg-amber-600 text-white"
+                            stop.is_community_host ? "bg-emerald-600 text-white" : "bg-amber-600 text-white"
                           }`}>
                             {stop.stop_number || idx + 1}
                           </span>
@@ -1429,21 +1461,21 @@ export default function MapView({
                           <div
                             className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
                             onClick={() => {
+                              const candidateCoordinates = getValidLngLat(cand);
+                              if (!candidateCoordinates) return;
                               if (mapRef.current) {
-                                mapRef.current.flyTo({ center: [cand.longitude, cand.latitude], zoom: 14 });
+                                mapRef.current.flyTo({ center: candidateCoordinates, zoom: 14 });
                               }
                               if (onSelectStation) onSelectStation(cand);
                             }}
                           >
-                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                              cand.is_community_host ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"
-                            }`}>
+                            <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[10px] shrink-0">
                               {cand.is_community_host ? "🏠" : "⚡"}
                             </span>
                             <div className="min-w-0">
                               <p className="font-semibold text-zinc-100 text-xs truncate">{cand.name}</p>
                               <div className="flex items-center gap-2 text-[10px] text-zinc-400">
-                                <span className={cand.is_community_host ? "text-blue-400" : "text-emerald-400"}>
+                                <span className="text-emerald-400">
                                   {cand.is_community_host ? "Home Host" : `${cand.max_power_kw || 25} kW`}
                                 </span>
                                 <span>•</span>
@@ -1612,6 +1644,13 @@ function convertRouteToGeoJson(coordinates) {
   if (!coordinates || coordinates.length < 2) {
     return { type: "FeatureCollection", features: [] };
   }
+  const validCoordinates = coordinates.filter((coordinate) =>
+    Array.isArray(coordinate) && coordinate.length >= 2 &&
+    Number.isFinite(Number(coordinate[0])) && Number.isFinite(Number(coordinate[1])) &&
+    Number(coordinate[0]) >= -180 && Number(coordinate[0]) <= 180 &&
+    Number(coordinate[1]) >= -90 && Number(coordinate[1]) <= 90
+  );
+  if (validCoordinates.length < 2) return { type: "FeatureCollection", features: [] };
   return {
     type: "FeatureCollection",
     features: [
@@ -1619,7 +1658,7 @@ function convertRouteToGeoJson(coordinates) {
         type: "Feature",
         geometry: {
           type: "LineString",
-          coordinates: coordinates,
+          coordinates: validCoordinates,
         },
         properties: {},
       },
@@ -1635,13 +1674,15 @@ function convertStationsToGeoJson(stations = [], candidates = []) {
   const features = [];
 
   (stations || []).forEach((st) => {
+    const coordinates = getValidLngLat(st);
+    if (!coordinates) return;
     stationIdSet.add(st.id);
     features.push({
       type: "Feature",
       id: st.id,
       geometry: {
         type: "Point",
-        coordinates: [st.longitude, st.latitude],
+        coordinates,
       },
       properties: {
         id: st.id,
@@ -1655,6 +1696,8 @@ function convertStationsToGeoJson(stations = [], candidates = []) {
   });
 
   (candidates || []).forEach((c) => {
+    const coordinates = getValidLngLat(c);
+    if (!coordinates) return;
     if (!c.is_community_host && !stationIdSet.has(c.id)) {
       stationIdSet.add(c.id);
       features.push({
@@ -1662,7 +1705,7 @@ function convertStationsToGeoJson(stations = [], candidates = []) {
         id: c.id,
         geometry: {
           type: "Point",
-          coordinates: [c.longitude, c.latitude],
+          coordinates,
         },
         properties: {
           id: c.id,
@@ -1685,12 +1728,12 @@ function convertStationsToGeoJson(stations = [], candidates = []) {
 function convertCommunityChargersToGeoJson(chargers = []) {
   return {
     type: "FeatureCollection",
-    features: chargers.map((c) => ({
+    features: chargers.filter((c) => getValidLngLat(c)).map((c) => ({
       type: "Feature",
       id: `comm_${c.id}`,
       geometry: {
         type: "Point",
-        coordinates: [c.longitude, c.latitude],
+        coordinates: getValidLngLat(c),
       },
       properties: {
         id: c.id,

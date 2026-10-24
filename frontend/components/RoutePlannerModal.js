@@ -119,18 +119,19 @@ export default function RoutePlannerModal({
     const preset = activePresets.find(
       (c) => c.name.toLowerCase() === q.toLowerCase() || c.name.toLowerCase().startsWith(q.toLowerCase())
     );
-    if (preset) return preset;
+    if (preset && hasValidCoordinates(preset)) return preset;
     try {
       const res = await fetch(`${API_BASE_URL}/api/v1/geo/search?q=${encodeURIComponent(q)}&limit=3`);
       if (res.ok) {
         const places = await res.json();
         if (places && places.length > 0) {
-          return {
+          const location = {
             name: places[0].name || places[0].display_name.split(",")[0],
             display_name: places[0].display_name,
             latitude: Number(places[0].latitude),
             longitude: Number(places[0].longitude),
           };
+          return hasValidCoordinates(location) ? location : null;
         }
       }
     } catch (e) {
@@ -155,7 +156,7 @@ export default function RoutePlannerModal({
 
     setIsResolving(false);
 
-    if (!effectiveOrigin || !effectiveDest) {
+    if (!hasValidCoordinates(effectiveOrigin) || !hasValidCoordinates(effectiveDest)) {
       setErrorMessage("Please specify both a starting point (A) and destination (B). You can type any town, village, or address in India.");
       return;
     }
@@ -392,4 +393,12 @@ export default function RoutePlannerModal({
       </div>
     </div>
   );
+}
+
+function hasValidCoordinates(location) {
+  if (!location || location.latitude == null || location.longitude == null) return false;
+  const latitude = Number(location.latitude);
+  const longitude = Number(location.longitude);
+  return Number.isFinite(latitude) && Number.isFinite(longitude) &&
+    latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
 }

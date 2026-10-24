@@ -22,7 +22,7 @@ export default function TopNavHeader({
   const isOwner = currentUser?.role === "homeowner" || currentUser?.role === "operator";
 
   return (
-    <header className="fixed top-3 inset-x-0 z-40 pointer-events-none flex items-center justify-between px-3 sm:px-6">
+    <header className="map-top-header fixed top-[calc(env(safe-area-inset-top)+0.75rem)] inset-x-0 z-40 pointer-events-none flex items-center justify-between px-3 sm:top-3 sm:px-6">
       {/* Left: Brand or Vehicle indicator on desktop */}
       <div className="pointer-events-auto hidden md:flex items-center space-x-2 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 text-zinc-100 px-3 py-1.5 rounded-full shadow-lg">
         <button

@@ -46,10 +46,12 @@ export default function StationDetailsDrawer({
   const isCommunity = Boolean(station?.is_community_host || station?.host_name);
   const isOperational = station?.is_operational !== false && station?.availability_status !== "unavailable";
 
-  // Check if current user is the owner/host of this station
-  const isUserOwner =
-    (isCommunity && currentUser?.role === "homeowner" && (currentUser?.chargerId === station?.id || currentUser?.name === station?.host_name)) ||
-    (!isCommunity && currentUser?.role === "operator");
+  const isUserOwner = isCommunity
+    ? currentUser?.role === "homeowner" && Number(currentUser?.chargerId) === Number(station?.id)
+    : currentUser?.role === "operator" && (
+        Number(currentUser?.stationId) === Number(station?.id) ||
+        (currentUser?.operatorId != null && Number(currentUser.operatorId) === Number(station?.operator_id))
+      );
 
   // Fetch live crowd-sourced reports & ratings
   useEffect(() => {
@@ -96,9 +98,9 @@ export default function StationDetailsDrawer({
   const rating = reportsData?.average_rating || station.trust_score || 4.9;
 
   return (
-    <div className="absolute top-4 right-4 bottom-4 w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl z-30 flex flex-col overflow-hidden animate-in slide-in-from-right duration-200 pointer-events-auto">
+    <div className="fixed inset-0 w-full max-w-none bg-zinc-950 border-0 rounded-none shadow-2xl z-40 flex flex-col overflow-hidden animate-in slide-in-from-right duration-200 pointer-events-auto sm:absolute sm:inset-y-4 sm:right-4 sm:left-auto sm:w-full sm:max-w-md sm:border sm:rounded-2xl sm:z-30">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 flex items-start justify-between gap-3 bg-zinc-900/40">
+      <div className="px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 border-b border-zinc-800 flex items-start justify-between gap-3 bg-zinc-900/40 sm:p-4">
         <div>
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             {/* Community Blue Badge or Public Green Badge */}
@@ -410,7 +412,7 @@ export default function StationDetailsDrawer({
       </div>
 
       {/* Action Footer */}
-      <div className="p-3 border-t border-zinc-800 bg-zinc-950 flex flex-col gap-2">
+      <div className="px-3 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] border-t border-zinc-800 bg-zinc-950 flex flex-col gap-2 sm:p-3">
         <div className="flex items-center gap-2">
           {onRouteViaStation && (
             isSelectedStop ? (

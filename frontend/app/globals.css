@@ -20,6 +20,48 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+@media (max-width: 639px) {
+  html,
+  body {
+    overscroll-behavior: none;
+  }
+
+  .map-top-header {
+    top: calc(env(safe-area-inset-top) + 1.75rem);
+  }
+
+  .map-search {
+    top: calc(env(safe-area-inset-top) + 5.4rem);
+  }
+
+  .map-floating-controls {
+    top: auto;
+    bottom: calc(env(safe-area-inset-bottom) + 17rem);
+  }
+
+  .route-summary-banner {
+    top: calc(env(safe-area-inset-top) + 12rem);
+  }
+
+  .maplibregl-ctrl-bottom-right {
+    bottom: calc(env(safe-area-inset-bottom) + 4.8rem) !important;
+  }
+
+  .mobile-filter-chips {
+    justify-content: space-between;
+    gap: 0.25rem;
+    overflow: visible;
+  }
+
+  .mobile-filter-chips button {
+    min-width: 0;
+    padding-left: 0.55rem;
+    padding-right: 0.55rem;
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+}
+
 /* Minimal subtle scrollbars */
 ::-webkit-scrollbar {
   width: 5px;

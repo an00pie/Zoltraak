@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { MapPin, Navigation, Zap } from "lucide-react";
 import MapView from "@/components/MapView";
 import FilterBar from "@/components/FilterBar";
 import RoutePlannerPanel from "@/components/RoutePlannerPanel";
@@ -24,6 +25,12 @@ import OwnerDashboardModal from "@/components/OwnerDashboardModal";
 import { DEFAULT_VEHICLE } from "@/data/vehicles";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const getRoutingStationId = (station) => {
+  if (!station || station.id == null) return null;
+  const isCommunity = Boolean(station.is_community_host || station.host_name);
+  const stationId = Number(station.id);
+  return isCommunity && stationId < 100000 ? stationId + 100000 : stationId;
+};
 
 export default function Home() {
   // Navigation & View Mode: 'map' | 'home'
@@ -54,7 +61,7 @@ export default function Home() {
 
   // Map Controls & Display Settings (Clustering OFF by default)
   const [clusteringEnabled, setClusteringEnabled] = useState(false);
-  const [currentStyle, setCurrentStyle] = useState("dark");
+  const [currentStyle, setCurrentStyle] = useState("light");
   const [isLocating, setIsLocating] = useState(false);
 
   // Station Data & Metadata
@@ -371,7 +378,7 @@ export default function Home() {
       const targetStationId = isExplicitClear
         ? -1
         : stationOverride
-        ? stationOverride.id
+        ? getRoutingStationId(stationOverride)
         : null;
 
       const payload = {
@@ -415,7 +422,10 @@ export default function Home() {
             longitude: data.routed_via_station.station_longitude,
           };
         setSelectedStationStop(st);
-        setActiveMobileStation(st);
+        const activeStation = st.is_community_host
+          ? communityChargers.find((charger) => charger.id === st.id - 100000) || st
+          : st;
+        setActiveMobileStation(activeStation);
       } else {
         setSelectedStationStop(null);
       }
@@ -428,7 +438,9 @@ export default function Home() {
   };
 
   const handleSelectStationStop = (station) => {
-    setSelectedStationStop(station);
+    setSelectedStationStop(
+      station?.id == null ? station : { ...station, id: getRoutingStationId(station) }
+    );
     setActiveMobileStation(station);
     if (origin && destination) {
       handleCalculateRoute(station);
@@ -471,6 +483,38 @@ export default function Home() {
     });
   }, [stations, searchQuery, activeFilterChip]);
 
+  const mobileNearbyStations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const publicStations = viewportNearbyStations.map((station) => ({
+      ...station,
+      is_community_host: false,
+    }));
+    const communityStations = communityChargers.map((station) => {
+      const latitudeDelta = ((station.latitude - viewportCenter.latitude) * Math.PI) / 180;
+      const longitudeDelta = ((station.longitude - viewportCenter.longitude) * Math.PI) / 180;
+      const latitudeRadians = (viewportCenter.latitude * Math.PI) / 180;
+      const distance = 2 * 6371 * Math.asin(Math.sqrt(
+        Math.sin(latitudeDelta / 2) ** 2 +
+        Math.cos(latitudeRadians) * Math.cos((station.latitude * Math.PI) / 180) *
+        Math.sin(longitudeDelta / 2) ** 2
+      ));
+      return { ...station, name: station.title, distance_km: distance, max_power_kw: station.power_kw };
+    });
+
+    return [...publicStations, ...communityStations]
+      .filter((station) => {
+        const isCommunity = Boolean(station.is_community_host || station.host_name);
+        if (stationFilterMode === "community_only" && !isCommunity) return false;
+        if (stationFilterMode === "public_only" && isCommunity) return false;
+        if (activeFilterChip === "available" && (station.is_available === false || ["unavailable", "offline"].includes((station.availability_status || station.status || "").toLowerCase()))) return false;
+        if (!query) return true;
+        return [station.name, station.address, station.city, station.operator_name, station.host_name]
+          .some((value) => (value || "").toLowerCase().includes(query));
+      })
+      .sort((first, second) => (first.distance_km ?? Infinity) - (second.distance_km ?? Infinity))
+      .slice(0, 12);
+  }, [viewportNearbyStations, communityChargers, viewportCenter, searchQuery, stationFilterMode, activeFilterChip]);
+
   // Active route coordinates
   const activeRouteCoordinates = useMemo(() => {
     if (!routeData) return null;
@@ -495,7 +539,7 @@ export default function Home() {
   };
 
   return (
-    <main className="relative w-screen h-screen overflow-hidden bg-zinc-950 font-sans select-none">
+    <main className="app-shell relative w-screen h-[100dvh] overflow-hidden bg-zinc-950 font-sans select-none">
       {/* Top Header matching Image 4: [ Home NEW | Map View ] */}
       <TopNavHeader
         currentView={currentView}
@@ -571,7 +615,7 @@ export default function Home() {
           />
 
           {/* 2. Top Search & Filter Bar (Matching Image 4) */}
-          <div className="absolute top-16 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-30 transition-all">
+          <div className="map-search absolute top-[calc(env(safe-area-inset-top)+6.5rem)] inset-x-3 sm:top-16 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[480px] z-30 transition-all">
             <MobileSearchBar
               searchQuery={searchQuery}
               setSearchQuery={setSearchQuery}
@@ -647,9 +691,10 @@ export default function Home() {
 
           {/* 4. Floating Bottom Station Preview Card (Matching Image 4) */}
           {activeMobileStation && !selectedStation && (
-            <div className="absolute bottom-20 inset-x-3 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-20 flex justify-center">
+            <div className="absolute bottom-[calc(env(safe-area-inset-bottom)+5.8rem)] inset-x-3 sm:bottom-20 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[440px] z-20 flex justify-center">
               <MobileStationCard
                 station={activeMobileStation}
+                hasActiveRoute={Boolean(routeData)}
                 onOpenReportModal={handleOpenReportModal}
                 onGetDirection={(st) => {
                   if (origin && destination) {
@@ -670,6 +715,92 @@ export default function Home() {
             </div>
           )}
 
+          {!activeMobileStation && !selectedStation && (
+            <section
+              aria-label="Nearby charging stations"
+              className="mobile-nearby-strip absolute bottom-[calc(env(safe-area-inset-bottom)+5.7rem)] left-3 right-[4.25rem] z-20 sm:hidden"
+            >
+              <div className="mb-2 flex items-center justify-between px-1 text-zinc-800">
+                <h2 className="rounded-full bg-white/90 px-3 py-1 text-[11px] font-bold shadow-sm backdrop-blur-sm">
+                  Nearby chargers
+                </h2>
+                <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold shadow-sm backdrop-blur-sm">
+                  {isFetchingNearby ? "Updating…" : `${mobileNearbyStations.length} options`}
+                </span>
+              </div>
+              {mobileNearbyStations.length > 0 ? (
+                <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  {mobileNearbyStations.map((station) => {
+                    const isCommunity = Boolean(station.is_community_host || station.host_name);
+                    const stationName = station.name || station.title || "EV charging station";
+                    const connectorLabels = isCommunity
+                      ? [station.connector_type].filter(Boolean)
+                      : (station.connectors || []).map((connector) => connector.connector_type).filter(Boolean);
+                    return (
+                      <article
+                        key={`${isCommunity ? "community" : "public"}-${station.id}`}
+                        className="w-[min(82vw,310px)] shrink-0 snap-start rounded-2xl border border-zinc-200 bg-white p-3 text-zinc-900 shadow-xl"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${isCommunity ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700"}`}>
+                              {isCommunity ? "Alpha Guaranteed" : "Public charger"}
+                            </span>
+                            <h3 className="mt-1 truncate text-sm font-bold">{stationName}</h3>
+                            <p className="truncate text-[11px] text-zinc-500">
+                              {station.operator_name || station.host_name || station.address || station.city || "Kerala"}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-semibold text-zinc-700">
+                            {Number.isFinite(Number(station.distance_km)) ? `${Number(station.distance_km).toFixed(1)} km` : "Nearby"}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-2 overflow-hidden text-[10px] font-semibold text-emerald-700">
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-emerald-50 px-2 py-1">
+                            <Zap className="h-3 w-3 fill-current" />
+                            {station.max_power_kw || station.power_kw || "—"} kW
+                          </span>
+                          <span className="truncate rounded-md bg-zinc-100 px-2 py-1 text-zinc-600">
+                            {connectorLabels.length ? connectorLabels.join(" · ") : "Connector details"}
+                          </span>
+                          {isCommunity && station.price_per_kwh != null && (
+                            <span className="shrink-0 text-zinc-600">₹{station.price_per_kwh}/kWh</span>
+                          )}
+                        </div>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedStation(station);
+                              setFocusCoordinate([station.longitude, station.latitude]);
+                            }}
+                            className="rounded-xl bg-blue-50 px-2 py-2 text-xs font-bold text-blue-700"
+                          >
+                            View details
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDestination({ name: stationName, latitude: station.latitude, longitude: station.longitude });
+                              setIsRoutePlannerModalOpen(true);
+                            }}
+                            className="inline-flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700"
+                          >
+                            <Navigation className="h-3.5 w-3.5" /> Directions
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-zinc-200 bg-white/95 p-3 text-xs text-zinc-600 shadow-lg">
+                  {isFetchingNearby ? "Finding chargers near this map area…" : "No chargers match these filters nearby."}
+                </div>
+              )}
+            </section>
+          )}
+
           {/* 5. Full Station Details Drawer (when user taps for full info) */}
           {selectedStation && (
             <StationDetailsDrawer
@@ -679,8 +810,8 @@ export default function Home() {
               onRouteViaStation={(st) => handleSelectStationStop(st)}
               onClearStationStop={handleClearStationStop}
               isSelectedStop={
-                selectedStationStop?.id === selectedStation.id ||
-                routeData?.routed_via_station?.station_id === selectedStation.id
+                selectedStationStop?.id === getRoutingStationId(selectedStation) ||
+                routeData?.routed_via_station?.station_id === getRoutingStationId(selectedStation)
               }
               currentUser={currentUser}
               onOpenReportModal={handleOpenReportModal}
@@ -716,7 +847,9 @@ export default function Home() {
           setIsRoutePlannerModalOpen(false);
           setIsVehicleSelectorOpen(true);
         }}
-        onCalculateRoute={() => handleCalculateRoute()}
+        onCalculateRoute={(routeOrigin, routeDestination) =>
+          handleCalculateRoute(null, routeOrigin, routeDestination)
+        }
         onClearRoute={handleClearRoute}
         isRouting={isRouting}
         routeData={routeData}

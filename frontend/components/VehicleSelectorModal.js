@@ -101,10 +101,10 @@ export default function VehicleSelectorModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto bg-white text-zinc-900 rounded-3xl shadow-2xl flex flex-col border border-zinc-200">
+    <div className="vehicle-selector-overlay fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 bg-white sm:bg-black/70 sm:backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="relative w-full h-[100dvh] sm:h-auto sm:max-w-lg max-h-[100dvh] sm:max-h-[92vh] overflow-y-auto bg-white text-zinc-900 rounded-none sm:rounded-3xl shadow-2xl flex flex-col border-0 sm:border sm:border-zinc-200">
         {/* Step Indicator Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 bg-white/95 backdrop-blur-md border-b border-zinc-100">
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 sm:px-6 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 bg-white/95 backdrop-blur-md border-b border-zinc-100">
           <div className="flex items-center space-x-3">
             {step > 1 && (
               <button
@@ -141,7 +141,7 @@ export default function VehicleSelectorModal({
         </div>
 
         {/* Content Body */}
-        <div className="p-5 sm:p-6 flex-1 overflow-y-auto">
+        <div className="p-4 sm:p-6 flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom)+1.25rem)]">
           {/* STEP 1: SELECT VEHICLE TYPE (Image 1) */}
           {step === 1 && (
             <div className="space-y-6">
@@ -154,7 +154,7 @@ export default function VehicleSelectorModal({
                       key={t.id}
                       type="button"
                       onClick={() => handleTypeSelect(t.id)}
-                      className={`relative flex flex-col items-center justify-between p-4 min-h-[170px] rounded-2xl border-2 transition-all text-center ${
+                      className={`relative flex flex-col items-center justify-between p-4 min-h-[clamp(150px,25vh,205px)] rounded-2xl border-2 transition-all text-center ${
                         isSelected
                           ? "border-zinc-900 bg-zinc-50/70 shadow-md ring-2 ring-zinc-900/10"
                           : "border-zinc-200/90 bg-white hover:border-zinc-300 hover:bg-zinc-50/30"
@@ -226,7 +226,7 @@ export default function VehicleSelectorModal({
           {step === 2 && (
             <div className="space-y-6">
               {/* Grid of brand tiles */}
-              <div className="grid grid-cols-4 sm:grid-cols-4 gap-2.5 sm:gap-3 max-h-[380px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-4 gap-2.5 sm:gap-3 max-h-[62dvh] overflow-y-auto pr-1">
                 {availableBrands.map((b) => {
                   const isSelected = selectedBrand === b.id;
                   return (
@@ -234,7 +234,7 @@ export default function VehicleSelectorModal({
                       key={b.id}
                       type="button"
                       onClick={() => handleBrandSelect(b.id)}
-                      className={`flex flex-col items-center justify-center p-2.5 sm:p-3 min-h-[76px] rounded-2xl border-2 transition-all ${
+                      className={`flex flex-col items-center justify-center p-2 sm:p-3 min-h-[82px] sm:min-h-[96px] rounded-2xl border-2 transition-all ${
                         isSelected
                           ? "border-zinc-900 bg-zinc-100/80 shadow-md ring-2 ring-zinc-900/10"
                           : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50"
