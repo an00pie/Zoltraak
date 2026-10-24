@@ -91,7 +91,7 @@ Find stations near a specific GPS coordinate, sorted by distance.
 * `radius_km` (float, optional, default: `25.0`): Search radius in kilometers
 * `limit` (int, optional, default: `20`): Max stations to return
 
-### `GET /stations/h3/grid`
+### `GET /stations/h3-grid`
 Generates a GeoJSON `FeatureCollection` of Uber H3 hexagonal polygons covering the requested bounding box or cluster centers, with station density counts.
 
 **Query Parameters:**
@@ -207,7 +207,12 @@ Submit an on-the-ground driver report or star rating for a station or home charg
 *Note: If `report_type` is set to `broken` or `unavailable`, the station's status is automatically flagged to alert upcoming drivers.*
 
 ### `GET /reports`
-Retrieve submitted reports, filtered by station or community charger ID.
+Retrieve crowdsourced reviews, ratings, and latest status reports for a target station.
+
+**Query Parameters:**
+* `station_id` (int, required): Target station ID or community charger ID
+* `station_type` (string, optional, default: `"public"`): `"public"` or `"community"`
+* `limit` (int, optional, default: `20`): Maximum reports to retrieve
 
 ---
 
@@ -248,8 +253,8 @@ Calculates the optimal EV route between origin and destination with corridor cha
 }
 ```
 
-### `GET /routing/presets`
-Returns predefined point-to-point regional routes and test corridors (e.g., *Kochi to Trivandrum*, *Kozhikode to Wayanad*, *Thrissur to Munnar*).
+### `GET /routing/preset-cities`
+Returns predefined key cities and regional waypoint coordinates along popular Indian EV highway corridors (e.g., *Kochi, Alappuzha, Kollam, Trivandrum, Thrissur, Palakkad*).
 
 ---
 
