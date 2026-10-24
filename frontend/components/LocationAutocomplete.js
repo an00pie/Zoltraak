@@ -9,6 +9,7 @@ export default function LocationAutocomplete({
   label,
   value,
   onChange,
+  onTextChange,
   presetCities = [],
   placeholder = "Type any city, town, or address in India...",
   accentColor = "emerald", // "emerald" for A, "rose" for B
@@ -57,6 +58,7 @@ export default function LocationAutocomplete({
   const handleInputChange = (e) => {
     const text = e.target.value;
     setInputText(text);
+    if (onTextChange) onTextChange(text);
     setIsOpen(true);
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
@@ -85,12 +87,62 @@ export default function LocationAutocomplete({
     }, 200);
   };
 
+  // Instant geocoding resolution for typed text (Enter key or form submit)
+  const resolveAndSelectText = async (textToResolve) => {
+    const q = (textToResolve || inputText || "").trim();
+    if (!q) return null;
+
+    // Check presets first
+    const matchedPreset = presetCities.find(
+      (c) => c.name.toLowerCase() === q.toLowerCase() || c.name.toLowerCase().startsWith(q.toLowerCase())
+    );
+    if (matchedPreset) {
+      handleSelectPlace(matchedPreset);
+      return matchedPreset;
+    }
+
+    setIsSearching(true);
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/api/v1/geo/search?q=${encodeURIComponent(q)}&limit=5`
+      );
+      if (res.ok) {
+        const places = await res.json();
+        if (places && places.length > 0) {
+          handleSelectPlace(places[0]);
+          return places[0];
+        }
+      }
+    } catch (err) {
+      console.warn("Auto-resolve place error:", err);
+    } finally {
+      setIsSearching(false);
+    }
+    return null;
+  };
+
+  // Keyboard navigation & Enter key auto-selection
+  const handleKeyDown = async (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (suggestions.length > 0) {
+        handleSelectPlace(suggestions[0]);
+      } else if (filteredPresets.length > 0) {
+        handleSelectPlace(filteredPresets[0]);
+      } else if (inputText.trim().length >= 2) {
+        await resolveAndSelectText(inputText);
+      }
+    } else if (e.key === "Escape") {
+      setIsOpen(false);
+    }
+  };
+
   const handleSelectPlace = (place) => {
     const selectedObj = {
       name: place.name || place.display_name.split(",")[0],
-      display_name: place.display_name,
-      latitude: place.latitude,
-      longitude: place.longitude,
+      display_name: place.display_name || place.name,
+      latitude: Number(place.latitude),
+      longitude: Number(place.longitude),
     };
     setInputText(selectedObj.name);
     setIsOpen(false);
@@ -99,6 +151,7 @@ export default function LocationAutocomplete({
 
   const handleClear = () => {
     setInputText("");
+    if (onTextChange) onTextChange("");
     setSuggestions([]);
     setIsOpen(false);
     onChange(null);
@@ -191,6 +244,12 @@ export default function LocationAutocomplete({
           type="text"
           value={inputText}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onBlur={() => {
+            if (inputText.trim().length >= 2 && (!value || value.name !== inputText.trim())) {
+              resolveAndSelectText(inputText);
+            }
+          }}
           onFocus={() => setIsOpen(true)}
           placeholder={placeholder}
           className="w-full bg-transparent pl-8 pr-7 py-2 text-zinc-100 text-xs placeholder-zinc-500 focus:outline-none font-normal"
@@ -215,6 +274,29 @@ export default function LocationAutocomplete({
       {/* Floating Suggestions & Preset Dropdown */}
       {isOpen && (
         <div className="absolute left-0 right-0 top-full mt-1.5 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 overflow-hidden text-xs max-h-80 overflow-y-auto">
+          {/* Active Search / Quick Resolution Action */}
+          {inputText.trim().length >= 2 && (
+            <button
+              type="button"
+              onClick={() => resolveAndSelectText(inputText)}
+              className="w-full px-3 py-2 text-left bg-blue-950/40 hover:bg-blue-900/60 border-b border-zinc-800 flex items-center justify-between text-blue-300 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Search className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                <span className="font-semibold text-xs">Use &ldquo;{inputText.trim()}&rdquo;</span>
+              </div>
+              <span className="text-[10px] bg-blue-900/80 px-1.5 py-0.5 rounded font-mono text-blue-200">
+                Press Enter ↵
+              </span>
+            </button>
+          )}
+
+          {isSearching && (
+            <div className="px-3 py-2 bg-zinc-950/90 text-zinc-400 flex items-center gap-2 border-b border-zinc-800">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+              <span className="text-[11px]">Searching towns & villages across Kerala & India...</span>
+            </div>
+          )}
           {/* Matched Geocoded Locations */}
           {suggestions.length > 0 && (
             <div>

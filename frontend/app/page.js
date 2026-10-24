@@ -52,8 +52,8 @@ export default function Home() {
   // Dedicated Route A -> B Modal
   const [isRoutePlannerModalOpen, setIsRoutePlannerModalOpen] = useState(false);
 
-  // Map Controls & Display Settings
-  const [clusteringEnabled, setClusteringEnabled] = useState(true);
+  // Map Controls & Display Settings (Clustering OFF by default)
+  const [clusteringEnabled, setClusteringEnabled] = useState(false);
   const [currentStyle, setCurrentStyle] = useState("dark");
   const [isLocating, setIsLocating] = useState(false);
 
@@ -372,7 +372,7 @@ export default function Home() {
         ? -1
         : stationOverride
         ? stationOverride.id
-        : selectedStationStop?.id || null;
+        : null;
 
       const payload = {
         origin: {

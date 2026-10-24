@@ -86,7 +86,7 @@ export default function MapView({
   showCommunityChargers = true,
   setShowCommunityChargers = null,
   stationFilterMode = "all", // 'all' | 'community_only' | 'public_only'
-  clusteringEnabled = true,
+  clusteringEnabled = false,
   setClusteringEnabled = null,
   currentStyle = "dark",
   setCurrentStyle = null,
@@ -111,6 +111,7 @@ export default function MapView({
 
   const [showGpsSteps, setShowGpsSteps] = useState(false);
   const [showStopsList, setShowStopsList] = useState(false);
+  const [activeStopsTab, setActiveStopsTab] = useState("planned"); // 'planned' | 'nearby'
 
   // Active route details for Google Maps-style navigation HUD
   const activeRouteDetails = useMemo(() => {
@@ -648,13 +649,23 @@ export default function MapView({
     addCommunityChargersSourceAndLayers(map);
   };
 
-  // Add Community Home Chargers Source and Layers
+  // Add Community Home Chargers Source and Layers (Electric Royal Blue with 🏠 Icon)
   const addCommunityChargersSourceAndLayers = (map) => {
+    const isCommVisible = stationFilterMode === "public_only" ? false : true;
+    const commVisibility = isCommVisible ? "visible" : "none";
+    const commData = convertCommunityChargersToGeoJson(
+      communityChargersRef.current && communityChargersRef.current.length > 0
+        ? communityChargersRef.current
+        : communityChargers
+    );
+
     if (!map.getSource("community-chargers-source")) {
       map.addSource("community-chargers-source", {
         type: "geojson",
-        data: convertCommunityChargersToGeoJson(communityChargers),
+        data: commData,
       });
+    } else {
+      map.getSource("community-chargers-source").setData(commData);
     }
 
     if (!map.getLayer("community-chargers-halo")) {
@@ -662,14 +673,16 @@ export default function MapView({
         id: "community-chargers-halo",
         type: "circle",
         source: "community-chargers-source",
-        layout: { visibility: showCommunityChargers ? "visible" : "none" },
+        layout: { visibility: commVisibility },
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 12, 16, 16, 22],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 11, 14, 15, 20],
           "circle-color": "#38bdf8",
-          "circle-opacity": 0.4,
+          "circle-opacity": 0.45,
           "circle-blur": 0.4,
         },
       });
+    } else {
+      map.setLayoutProperty("community-chargers-halo", "visibility", commVisibility);
     }
 
     if (!map.getLayer("community-chargers-circle")) {
@@ -677,14 +690,33 @@ export default function MapView({
         id: "community-chargers-circle",
         type: "circle",
         source: "community-chargers-source",
-        layout: { visibility: showCommunityChargers ? "visible" : "none" },
+        layout: { visibility: commVisibility },
         paint: {
-          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6, 11, 9, 15, 13],
+          "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 6.5, 11, 10, 15, 14],
           "circle-color": "#2563eb",
           "circle-stroke-width": 2.5,
           "circle-stroke-color": "#ffffff",
         },
       });
+    } else {
+      map.setLayoutProperty("community-chargers-circle", "visibility", commVisibility);
+    }
+
+    if (!map.getLayer("community-chargers-symbol")) {
+      map.addLayer({
+        id: "community-chargers-symbol",
+        type: "symbol",
+        source: "community-chargers-source",
+        layout: {
+          visibility: commVisibility,
+          "text-field": "🏠",
+          "text-size": ["interpolate", ["linear"], ["zoom"], 6, 8, 11, 11, 15, 14],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true,
+        },
+      });
+    } else {
+      map.setLayoutProperty("community-chargers-symbol", "visibility", commVisibility);
     }
   };
 
@@ -979,11 +1011,23 @@ export default function MapView({
       activeRouteDetails.stops.forEach((stop, idx) => {
         const el = document.createElement("div");
         const isComm = stop.is_community_host;
-        el.className = `px-2 py-0.5 rounded-full border border-white shadow-xl flex items-center gap-1 font-semibold text-[10px] text-white cursor-pointer transition-transform hover:scale-105 ${
-          isComm ? "bg-blue-600" : "bg-amber-600"
+        el.className = `px-2.5 py-1 rounded-full border-2 border-white shadow-2xl flex items-center gap-1.5 font-bold text-[11px] text-white cursor-pointer transition-all hover:scale-110 active:scale-95 ${
+          isComm
+            ? "bg-blue-600 ring-4 ring-blue-500/50"
+            : "bg-amber-600 ring-4 ring-amber-500/50"
         }`;
-        el.innerHTML = `<span>${isComm ? "🏠" : "⚡"}</span><span>Stop ${stop.stop_number || idx + 1}: ${escapeHtml((stop.name || "").split(" ")[0])}</span>`;
-        const marker = new maplibregl.Marker({ element: el })
+        const chargeMins = Math.round(stop.charge_time_min || 20);
+        el.innerHTML = `<span>${isComm ? "🏠" : "⚡"}</span><span>Stop ${stop.stop_number || idx + 1}: ${escapeHtml((stop.name || "").split(" ")[0])} (+${chargeMins}m)</span>`;
+        el.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (mapRef.current) {
+            mapRef.current.flyTo({ center: [stop.longitude, stop.latitude], zoom: 14, speed: 1.2 });
+          }
+          if (onSelectStation) {
+            onSelectStation(stop);
+          }
+        });
+        const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
           .setLngLat([stop.longitude, stop.latitude])
           .addTo(mapRef.current);
         stationStopMarkersRef.current.push(marker);
@@ -991,9 +1035,23 @@ export default function MapView({
     } else if (activeRouteDetails?.isMultiStop && activeRouteDetails.stationLat) {
       const el = document.createElement("div");
       el.className =
-        "px-2 py-0.5 rounded-full bg-amber-500 border border-white shadow-md flex items-center gap-1 font-semibold text-[10px] text-zinc-950";
-      el.innerHTML = `<span>⚡</span><span>${escapeHtml(activeRouteDetails.stationName.split(" ")[0])}</span>`;
-      const marker = new maplibregl.Marker({ element: el })
+        "px-2.5 py-1 rounded-full bg-amber-500 ring-4 ring-amber-400/50 border-2 border-white shadow-2xl flex items-center gap-1.5 font-bold text-[11px] text-zinc-950 cursor-pointer hover:scale-110";
+      el.innerHTML = `<span>⚡</span><span>Stop: ${escapeHtml((activeRouteDetails.stationName || "Charger").split(" ")[0])}</span>`;
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (mapRef.current) {
+          mapRef.current.flyTo({ center: [activeRouteDetails.stationLng, activeRouteDetails.stationLat], zoom: 14 });
+        }
+        if (onSelectStation) {
+          onSelectStation({
+            id: activeRouteDetails.stationId,
+            name: activeRouteDetails.stationName,
+            latitude: activeRouteDetails.stationLat,
+            longitude: activeRouteDetails.stationLng,
+          });
+        }
+      });
+      const marker = new maplibregl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([activeRouteDetails.stationLng, activeRouteDetails.stationLat])
         .addTo(mapRef.current);
       stationStopMarkersRef.current.push(marker);
@@ -1159,8 +1217,9 @@ export default function MapView({
       )}
 
       {/* Google Maps GPS Navigation Floating Banner */}
+      {/* Google Maps GPS Navigation Floating Banner (Top-Left - Never overlaps right floating controls) */}
       {activeRouteDetails && (
-        <div className="absolute top-28 left-3 right-3 sm:left-auto sm:right-6 sm:w-[480px] z-20 flex flex-col pointer-events-none animate-in slide-in-from-top-2 duration-200">
+        <div className="absolute top-20 left-3 sm:left-6 sm:w-[480px] max-w-[calc(100vw-24px)] z-30 flex flex-col pointer-events-none animate-in slide-in-from-top-2 duration-200">
           {/* Critical Battery Warning Banner */}
           {activeRouteDetails.batteryWarning && (
             <div className="bg-rose-950/95 backdrop-blur-md border border-rose-700/80 rounded-2xl shadow-2xl p-3 px-3.5 mb-2 pointer-events-auto w-full text-xs animate-in slide-in-from-top-1">
@@ -1225,14 +1284,14 @@ export default function MapView({
 
             {/* Right: Actions */}
             <div className="flex items-center gap-1.5 ml-auto">
-              {activeRouteDetails.stops?.length > 0 && (
+              {(activeRouteDetails.stops?.length > 0 || candidateStations?.length > 0) && (
                 <button
                   type="button"
                   onClick={() => setShowStopsList(!showStopsList)}
                   className="px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-amber-300 font-medium rounded-lg text-xs transition-colors flex items-center gap-1.5"
                 >
                   <Zap className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Stops ({activeRouteDetails.stops.length})</span>
+                  <span>Stops ({activeRouteDetails.stops?.length || 0})</span>
                   {showStopsList ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                 </button>
               )}
@@ -1268,40 +1327,163 @@ export default function MapView({
             </div>
           </div>
 
-          {/* Planned Charging Stops Dropdown Sheet */}
-          {showStopsList && activeRouteDetails.stops?.length > 0 && (
-            <div className="bg-zinc-950 border border-zinc-800 rounded-xl shadow-xl p-3 mt-1.5 max-w-2xl w-full max-h-72 overflow-y-auto pointer-events-auto space-y-1.5 text-xs animate-in slide-in-from-top-1 duration-150">
-              <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800 text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
-                <span>Multi-Stop Charging Itinerary</span>
-                <span className="text-amber-400 font-mono">+{activeRouteDetails.chargingDurationMin}m Total Charging</span>
-              </div>
-              {activeRouteDetails.stops.map((stop, idx) => (
-                <div
-                  key={idx}
-                  className="p-2.5 bg-zinc-900/70 border border-zinc-800 rounded-lg flex items-center justify-between gap-2.5"
+          {/* Planned Charging Stops & Available Nearby Corridor Chargers */}
+          {showStopsList && (
+            <div className="bg-zinc-950/98 backdrop-blur-md border border-zinc-800 rounded-2xl shadow-2xl p-3 mt-1.5 max-w-2xl w-full max-h-80 overflow-y-auto pointer-events-auto space-y-2 text-xs animate-in slide-in-from-top-1 duration-150">
+              {/* Tab Selector */}
+              <div className="flex items-center gap-1.5 p-1 bg-zinc-900/80 border border-zinc-800/80 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => setActiveStopsTab("planned")}
+                  className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] transition-colors flex items-center justify-center gap-1.5 ${
+                    activeStopsTab === "planned"
+                      ? "bg-zinc-800 text-amber-300 shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
                 >
-                  <div className="flex items-center gap-2">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] ${
-                      stop.is_community_host ? "bg-blue-600 text-white" : "bg-amber-600 text-white"
-                    }`}>
-                      {stop.stop_number || idx + 1}
-                    </span>
-                    <div>
-                      <p className="font-semibold text-zinc-100 text-xs">{stop.name}</p>
-                      <p className="text-[10px] text-zinc-400">
-                        {stop.is_community_host ? "🏠 Community Home Host" : "⚡ Public Fast Charger"} • {stop.max_power_kw} kW
-                        {stop.city ? ` • ${stop.city}` : ""}
-                      </p>
+                  <Zap className="w-3 h-3 text-amber-400" />
+                  <span>Planned Stops ({activeRouteDetails.stops?.length || 0})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveStopsTab("nearby")}
+                  className={`flex-1 py-1.5 px-2 rounded-lg font-bold text-[11px] transition-colors flex items-center justify-center gap-1.5 ${
+                    activeStopsTab === "nearby"
+                      ? "bg-zinc-800 text-blue-400 shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  <Home className="w-3 h-3 text-blue-400" />
+                  <span>Available Nearby ({candidateStations?.length || 0})</span>
+                </button>
+              </div>
+
+              {/* TAB 1: Planned Stops */}
+              {activeStopsTab === "planned" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-800/80 text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                    <span>Recharge Sequence</span>
+                    <span className="text-amber-400 font-mono">+{activeRouteDetails.chargingDurationMin || 0}m Total Charge</span>
+                  </div>
+                  {(!activeRouteDetails.stops || activeRouteDetails.stops.length === 0) ? (
+                    <div className="p-3 text-center text-zinc-400 text-xs bg-zinc-900/40 rounded-xl border border-zinc-800/60">
+                      Direct travel feasible without charging stops. You can pick an optional stop from the &ldquo;Available Nearby&rdquo; tab.
                     </div>
-                  </div>
-                  <div className="text-right text-[10px] font-mono shrink-0">
-                    <span className="text-rose-400">{stop.arrival_soc}%</span>
-                    <span className="text-zinc-500"> ➔ </span>
-                    <span className="text-emerald-400">{stop.departure_soc}%</span>
-                    <p className="text-zinc-400">+{stop.charge_time_min} mins</p>
-                  </div>
+                  ) : (
+                    activeRouteDetails.stops.map((stop, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          if (mapRef.current) {
+                            mapRef.current.flyTo({ center: [stop.longitude, stop.latitude], zoom: 14 });
+                          }
+                          if (onSelectStation) onSelectStation(stop);
+                        }}
+                        className="p-2.5 bg-zinc-900/70 hover:bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-between gap-2.5 cursor-pointer transition-colors"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                            stop.is_community_host ? "bg-blue-600 text-white" : "bg-amber-600 text-white"
+                          }`}>
+                            {stop.stop_number || idx + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-zinc-100 text-xs truncate">{stop.name}</p>
+                            <p className="text-[10px] text-zinc-400 truncate">
+                              {stop.is_community_host ? "🏠 Community Home Host" : "⚡ Public Fast Charger"} • {stop.max_power_kw} kW
+                              {stop.city ? ` • ${stop.city}` : ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right text-[10px] font-mono shrink-0">
+                          <span className="text-rose-400">{stop.arrival_soc}%</span>
+                          <span className="text-zinc-500"> ➔ </span>
+                          <span className="text-emerald-400">{stop.departure_soc}%</span>
+                          <p className="text-amber-400 font-semibold">+{stop.charge_time_min} mins</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ))}
+              )}
+
+              {/* TAB 2: Available Nearby Corridor Stations */}
+              {activeStopsTab === "nearby" && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-zinc-800/80 text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                    <span>Corridor Charging Options</span>
+                    <span className="text-blue-400 font-mono">Tap &ldquo;Stop Here&rdquo; to choose</span>
+                  </div>
+                  {(!candidateStations || candidateStations.length === 0) ? (
+                    <div className="p-3 text-center text-zinc-400 text-xs bg-zinc-900/40 rounded-xl border border-zinc-800/60">
+                      No nearby highway chargers registered within detour range.
+                    </div>
+                  ) : (
+                    candidateStations.slice(0, 15).map((cand, idx) => {
+                      const isCurrentStop = activeRouteDetails.stops?.some(s => s.station_id === cand.id);
+                      return (
+                        <div
+                          key={cand.id || idx}
+                          className="p-2.5 bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800/80 rounded-xl flex items-center justify-between gap-2.5 transition-colors"
+                        >
+                          <div
+                            className="flex items-center gap-2 flex-1 min-w-0 cursor-pointer"
+                            onClick={() => {
+                              if (mapRef.current) {
+                                mapRef.current.flyTo({ center: [cand.longitude, cand.latitude], zoom: 14 });
+                              }
+                              if (onSelectStation) onSelectStation(cand);
+                            }}
+                          >
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                              cand.is_community_host ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"
+                            }`}>
+                              {cand.is_community_host ? "🏠" : "⚡"}
+                            </span>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-zinc-100 text-xs truncate">{cand.name}</p>
+                              <div className="flex items-center gap-2 text-[10px] text-zinc-400">
+                                <span className={cand.is_community_host ? "text-blue-400" : "text-emerald-400"}>
+                                  {cand.is_community_host ? "Home Host" : `${cand.max_power_kw || 25} kW`}
+                                </span>
+                                <span>•</span>
+                                <span>+{cand.detour_km ?? 0} km detour</span>
+                                {cand.price_per_kwh && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-zinc-300">₹{cand.price_per_kwh}/kWh</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isCurrentStop ? (
+                              <span className="px-2 py-1 bg-emerald-950/80 border border-emerald-800 text-emerald-400 rounded-lg text-[10px] font-bold">
+                                ✓ Active Stop
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (onRouteViaStation) {
+                                    onRouteViaStation(cand);
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-lg text-[10px] transition-all active:scale-95 shadow-md flex items-center gap-1"
+                              >
+                                <Zap className="w-2.5 h-2.5" />
+                                <span>Stop Here</span>
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -1447,13 +1629,14 @@ function convertRouteToGeoJson(coordinates) {
 
 function convertStationsToGeoJson(stations = [], candidates = []) {
   const candidateMap = new Map();
-  candidates.forEach((c) => candidateMap.set(c.id, c.tier));
+  (candidates || []).forEach((c) => candidateMap.set(c.id, c.tier));
 
-  const allList = candidates.length > 0 ? candidates : stations;
+  const stationIdSet = new Set();
+  const features = [];
 
-  return {
-    type: "FeatureCollection",
-    features: allList.map((st) => ({
+  (stations || []).forEach((st) => {
+    stationIdSet.add(st.id);
+    features.push({
       type: "Feature",
       id: st.id,
       geometry: {
@@ -1468,7 +1651,34 @@ function convertStationsToGeoJson(stations = [], candidates = []) {
         tier: candidateMap.get(st.id) || "default",
         is_operational: st.is_operational !== false,
       },
-    })),
+    });
+  });
+
+  (candidates || []).forEach((c) => {
+    if (!c.is_community_host && !stationIdSet.has(c.id)) {
+      stationIdSet.add(c.id);
+      features.push({
+        type: "Feature",
+        id: c.id,
+        geometry: {
+          type: "Point",
+          coordinates: [c.longitude, c.latitude],
+        },
+        properties: {
+          id: c.id,
+          name: c.name,
+          operator: c.operator_name || "Unknown",
+          h3_cell: c.h3_cell,
+          tier: c.tier || "optimal",
+          is_operational: true,
+        },
+      });
+    }
+  });
+
+  return {
+    type: "FeatureCollection",
+    features,
   };
 }
 

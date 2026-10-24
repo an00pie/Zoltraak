@@ -95,7 +95,12 @@ export default function RoutePlannerModal({
   isRouting = false,
   routeData = null,
 }) {
+  const [originText, setOriginText] = useState("");
+  const [destText, setDestText] = useState("");
+  const [isResolving, setIsResolving] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
 
   if (!isOpen) return null;
 
@@ -103,15 +108,59 @@ export default function RoutePlannerModal({
     const temp = origin;
     setOrigin(destination);
     setDestination(temp);
+    const tempText = originText;
+    setOriginText(destText);
+    setDestText(tempText);
+  };
+
+  const resolveLocation = async (query) => {
+    if (!query || typeof query !== "string" || query.trim().length < 2) return null;
+    const q = query.trim();
+    const preset = activePresets.find(
+      (c) => c.name.toLowerCase() === q.toLowerCase() || c.name.toLowerCase().startsWith(q.toLowerCase())
+    );
+    if (preset) return preset;
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/v1/geo/search?q=${encodeURIComponent(q)}&limit=3`);
+      if (res.ok) {
+        const places = await res.json();
+        if (places && places.length > 0) {
+          return {
+            name: places[0].name || places[0].display_name.split(",")[0],
+            display_name: places[0].display_name,
+            latitude: Number(places[0].latitude),
+            longitude: Number(places[0].longitude),
+          };
+        }
+      }
+    } catch (e) {
+      console.warn("Geocoding lookup error:", e);
+    }
+    return null;
   };
 
   const handleCalculate = async () => {
-    if (!origin || !destination) {
-      setErrorMessage("Please specify both a starting point (A) and destination (B).");
+    setIsResolving(true);
+    let effectiveOrigin = origin;
+    let effectiveDest = destination;
+
+    if (!effectiveOrigin && originText.trim().length >= 2) {
+      effectiveOrigin = await resolveLocation(originText);
+      if (effectiveOrigin) setOrigin(effectiveOrigin);
+    }
+    if (!effectiveDest && destText.trim().length >= 2) {
+      effectiveDest = await resolveLocation(destText);
+      if (effectiveDest) setDestination(effectiveDest);
+    }
+
+    setIsResolving(false);
+
+    if (!effectiveOrigin || !effectiveDest) {
+      setErrorMessage("Please specify both a starting point (A) and destination (B). You can type any town, village, or address in India.");
       return;
     }
     setErrorMessage(null);
-    await onCalculateRoute();
+    await onCalculateRoute(effectiveOrigin, effectiveDest);
     onClose();
   };
 
@@ -175,8 +224,9 @@ export default function RoutePlannerModal({
             label="Starting Point (Origin A)"
             value={origin}
             onChange={setOrigin}
+            onTextChange={setOriginText}
             presetCities={activePresets}
-            placeholder="Type any city, town, or village (e.g. Aluva, Pala, Kothamangalam...)"
+            placeholder="Type any city, town, or village (e.g. Aluva, Pala, Peermade, Vithura...)"
             accentColor="blue"
             enableGps={true}
           />
@@ -198,8 +248,9 @@ export default function RoutePlannerModal({
             label="Destination (Point B)"
             value={destination}
             onChange={setDestination}
+            onTextChange={setDestText}
             presetCities={activePresets}
-            placeholder="Type destination town or address (e.g. Munnar, Wayanad, Palakkad...)"
+            placeholder="Type destination town or address (e.g. Munnar, Wayanad, Peermade...)"
             accentColor="emerald"
             enableGps={false}
           />

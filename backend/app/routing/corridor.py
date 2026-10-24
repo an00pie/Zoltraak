@@ -309,41 +309,41 @@ class CorridorAnalyzer:
         # 2. Sequential Itinerary & Stops Simulation
         stops: List[Dict[str, Any]] = []
 
+        user_chosen_candidate = None
         if selected_station_id is not None and selected_station_id > 0:
-            # User explicitly chose a specific intermediate charging stop
-            target_candidate = next((c for c in candidates if c["id"] == selected_station_id), None)
-            if target_candidate:
-                d1 = haversine_distance(origin_lat, origin_lng, target_candidate["latitude"], target_candidate["longitude"])
-                d2 = haversine_distance(target_candidate["latitude"], target_candidate["longitude"], dest_lat, dest_lng)
-                arr_soc = round(max(0.0, current_soc - ((d1 * cls.EV_CONSUMPTION_KWH_PER_KM / battery_capacity_kwh) * 100.0)), 1)
-                dep_soc = 80.0 if arr_soc < 80.0 else min(95.0, arr_soc + 10.0)
-                energy_charged = round(battery_capacity_kwh * ((dep_soc - arr_soc) / 100.0), 1)
-                pwr = target_candidate.get("max_power_kw") or 25.0
-                charge_time = round((energy_charged / max(pwr, 7.4)) * 60.0 * 1.15, 0)
-                charge_time = max(15.0, min(120.0, charge_time))
-                final_arr_soc = round(max(0.0, dep_soc - ((d2 * cls.EV_CONSUMPTION_KWH_PER_KM / battery_capacity_kwh) * 100.0)), 1)
+            user_chosen_candidate = next((c for c in candidates if c["id"] == selected_station_id), None)
 
-                stops.append({
-                    "stop_number": 1,
-                    "station_id": target_candidate["id"],
-                    "source_id": target_candidate.get("source_id"),
-                    "name": target_candidate["name"],
-                    "operator_name": target_candidate["operator_name"],
-                    "latitude": target_candidate["latitude"],
-                    "longitude": target_candidate["longitude"],
-                    "city": target_candidate.get("city"),
-                    "distance_from_prev_km": round(d1, 1),
-                    "arrival_soc": arr_soc,
-                    "departure_soc": dep_soc,
-                    "charge_time_min": charge_time,
-                    "energy_charged_kwh": energy_charged,
-                    "max_power_kw": pwr,
-                    "is_community_host": target_candidate.get("is_community_host", False),
-                    "address": target_candidate.get("address", ""),
-                })
-                final_arrival_soc = final_arr_soc
-            else:
-                final_arrival_soc = direct_arrival_soc
+        if user_chosen_candidate:
+            target_candidate = user_chosen_candidate
+            d1 = haversine_distance(origin_lat, origin_lng, target_candidate["latitude"], target_candidate["longitude"])
+            d2 = haversine_distance(target_candidate["latitude"], target_candidate["longitude"], dest_lat, dest_lng)
+            arr_soc = round(max(0.0, current_soc - ((d1 * cls.EV_CONSUMPTION_KWH_PER_KM / battery_capacity_kwh) * 100.0)), 1)
+            dep_soc = 80.0 if arr_soc < 80.0 else min(95.0, arr_soc + 10.0)
+            energy_charged = round(battery_capacity_kwh * ((dep_soc - arr_soc) / 100.0), 1)
+            pwr = target_candidate.get("max_power_kw") or 25.0
+            charge_time = round((energy_charged / max(pwr, 7.4)) * 60.0 * 1.15, 0)
+            charge_time = max(15.0, min(120.0, charge_time))
+            final_arr_soc = round(max(0.0, dep_soc - ((d2 * cls.EV_CONSUMPTION_KWH_PER_KM / battery_capacity_kwh) * 100.0)), 1)
+
+            stops.append({
+                "stop_number": 1,
+                "station_id": target_candidate["id"],
+                "source_id": target_candidate.get("source_id"),
+                "name": target_candidate["name"],
+                "operator_name": target_candidate["operator_name"],
+                "latitude": target_candidate["latitude"],
+                "longitude": target_candidate["longitude"],
+                "city": target_candidate.get("city"),
+                "distance_from_prev_km": round(d1, 1),
+                "arrival_soc": arr_soc,
+                "departure_soc": dep_soc,
+                "charge_time_min": charge_time,
+                "energy_charged_kwh": energy_charged,
+                "max_power_kw": pwr,
+                "is_community_host": target_candidate.get("is_community_host", False),
+                "address": target_candidate.get("address", ""),
+            })
+            final_arrival_soc = final_arr_soc
 
         elif is_direct_feasible:
             # Trip is short enough that no charging stops are required

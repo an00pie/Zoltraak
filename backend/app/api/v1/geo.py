@@ -67,6 +67,60 @@ LOCAL_CORRIDOR_DIRECTORY = {
     "kannur": {"name": "Kannur, Kerala", "latitude": 11.8745, "longitude": 75.3704},
     "thalassery": {"name": "Thalassery, Kannur, Kerala", "latitude": 11.7491, "longitude": 75.4890},
     "kasaragod": {"name": "Kasaragod, Kerala", "latitude": 12.4996, "longitude": 74.9869},
+    "pala": {"name": "Pala, Kottayam, Kerala", "latitude": 9.7132, "longitude": 76.6836},
+    "kanjirappally": {"name": "Kanjirappally, Kottayam, Kerala", "latitude": 9.5557, "longitude": 76.7869},
+    "peermade": {"name": "Peermade, Idukki, Kerala", "latitude": 9.5720, "longitude": 76.9959},
+    "vithura": {"name": "Vithura, Thiruvananthapuram, Kerala", "latitude": 8.6700, "longitude": 77.0850},
+    "kattakada": {"name": "Kattakada, Thiruvananthapuram, Kerala", "latitude": 8.5080, "longitude": 77.0780},
+    "nilambur": {"name": "Nilambur, Malappuram, Kerala", "latitude": 11.2770, "longitude": 76.2240},
+    "thiruvambady": {"name": "Thiruvambady, Kozhikode, Kerala", "latitude": 11.4167, "longitude": 76.0167},
+    "marayoor": {"name": "Marayoor, Idukki, Kerala", "latitude": 10.2789, "longitude": 77.1603},
+    "ranni": {"name": "Ranni, Pathanamthitta, Kerala", "latitude": 9.3800, "longitude": 76.7800},
+    "adoor": {"name": "Adoor, Pathanamthitta, Kerala", "latitude": 9.1530, "longitude": 76.7360},
+    "konni": {"name": "Konni, Pathanamthitta, Kerala", "latitude": 9.2300, "longitude": 76.8400},
+    "pandalam": {"name": "Pandalam, Pathanamthitta, Kerala", "latitude": 9.2300, "longitude": 76.6800},
+    "chengannur": {"name": "Chengannur, Alappuzha, Kerala", "latitude": 9.3170, "longitude": 76.6170},
+    "mavelikkara": {"name": "Mavelikkara, Alappuzha, Kerala", "latitude": 9.2670, "longitude": 76.5500},
+    "haripad": {"name": "Haripad, Alappuzha, Kerala", "latitude": 9.2830, "longitude": 76.4670},
+    "kuttanad": {"name": "Kuttanad, Alappuzha, Kerala", "latitude": 9.4300, "longitude": 76.4300},
+    "karunagappally": {"name": "Karunagappally, Kollam, Kerala", "latitude": 9.0530, "longitude": 76.5360},
+    "punalur": {"name": "Punalur, Kollam, Kerala", "latitude": 9.0170, "longitude": 76.9330},
+    "kottarakkara": {"name": "Kottarakkara, Kollam, Kerala", "latitude": 8.9980, "longitude": 76.7720},
+    "paravur": {"name": "Paravur, Kollam, Kerala", "latitude": 8.8100, "longitude": 76.6700},
+    "attingal": {"name": "Attingal, Thiruvananthapuram, Kerala", "latitude": 8.6940, "longitude": 76.8140},
+    "varkala": {"name": "Varkala, Thiruvananthapuram, Kerala", "latitude": 8.7380, "longitude": 76.7160},
+    "nedumangad": {"name": "Nedumangad, Thiruvananthapuram, Kerala", "latitude": 8.6010, "longitude": 76.9980},
+    "neyyattinkara": {"name": "Neyyattinkara, Thiruvananthapuram, Kerala", "latitude": 8.4030, "longitude": 77.0860},
+    "vizhinjam": {"name": "Vizhinjam, Thiruvananthapuram, Kerala", "latitude": 8.3780, "longitude": 77.0020},
+    "piravom": {"name": "Piravom, Ernakulam, Kerala", "latitude": 9.8700, "longitude": 76.4900},
+    "koothattukulam": {"name": "Koothattukulam, Ernakulam, Kerala", "latitude": 9.8600, "longitude": 76.5800},
+    "wadakkanchery": {"name": "Wadakkanchery, Thrissur, Kerala", "latitude": 10.6600, "longitude": 76.2400},
+    "chavakkad": {"name": "Chavakkad, Thrissur, Kerala", "latitude": 10.5300, "longitude": 76.0500},
+    "triprayar": {"name": "Triprayar, Thrissur, Kerala", "latitude": 10.4200, "longitude": 76.1200},
+    "mannarkkad": {"name": "Mannarkkad, Palakkad, Kerala", "latitude": 10.9800, "longitude": 76.4600},
+    "cherpulassery": {"name": "Cherpulassery, Palakkad, Kerala", "latitude": 10.8800, "longitude": 76.3100},
+    "chittur": {"name": "Chittur, Palakkad, Kerala", "latitude": 10.7000, "longitude": 76.7200},
+    "pattambi": {"name": "Pattambi, Palakkad, Kerala", "latitude": 10.8000, "longitude": 76.1900},
+    "kollengode": {"name": "Kollengode, Palakkad, Kerala", "latitude": 10.6100, "longitude": 76.6900},
+    "kondotty": {"name": "Kondotty, Malappuram, Kerala", "latitude": 11.1500, "longitude": 75.9600},
+    "kottakkal": {"name": "Kottakkal, Malappuram, Kerala", "latitude": 10.9990, "longitude": 75.9980},
+    "tirur": {"name": "Tirur, Malappuram, Kerala", "latitude": 10.9150, "longitude": 75.9230},
+    "ponnani": {"name": "Ponnani, Malappuram, Kerala", "latitude": 10.7740, "longitude": 75.9250},
+    "koyilandy": {"name": "Koyilandy, Kozhikode, Kerala", "latitude": 11.4400, "longitude": 75.7000},
+    "vatakara": {"name": "Vatakara, Kozhikode, Kerala", "latitude": 11.6030, "longitude": 75.5900},
+    "payyanur": {"name": "Payyanur, Kannur, Kerala", "latitude": 12.1000, "longitude": 75.2000},
+    "taliparamba": {"name": "Taliparamba, Kannur, Kerala", "latitude": 12.0400, "longitude": 75.3600},
+    "iritty": {"name": "Iritty, Kannur, Kerala", "latitude": 11.9800, "longitude": 75.6700},
+    "kanhangad": {"name": "Kanhangad, Kasaragod, Kerala", "latitude": 12.3100, "longitude": 75.0900},
+    "nileshwaram": {"name": "Nileshwaram, Kasaragod, Kerala", "latitude": 12.2500, "longitude": 75.1300},
+    "kalpetta": {"name": "Kalpetta (Wayanad), Kerala", "latitude": 11.6103, "longitude": 76.0827},
+    "sulthan bathery": {"name": "Sulthan Bathery, Wayanad, Kerala", "latitude": 11.6620, "longitude": 76.2570},
+    "mananthavady": {"name": "Mananthavady, Wayanad, Kerala", "latitude": 11.8020, "longitude": 76.0030},
+    "vythiri": {"name": "Vythiri, Wayanad, Kerala", "latitude": 11.5500, "longitude": 76.0300},
+    "munnar": {"name": "Munnar, Idukki, Kerala", "latitude": 10.0889, "longitude": 77.0595},
+    "kattappana": {"name": "Kattappana, Idukki, Kerala", "latitude": 9.7780, "longitude": 77.1210},
+    "kumily": {"name": "Kumily, Idukki, Kerala", "latitude": 9.6000, "longitude": 77.1660},
+    "vagamon": {"name": "Vagamon, Idukki, Kerala", "latitude": 9.6800, "longitude": 76.9000},
     # Tamil Nadu & Karnataka Highway Corridors
     "coimbatore": {"name": "Coimbatore, Tamil Nadu", "latitude": 11.0168, "longitude": 76.9558},
     "tiruppur": {"name": "Tiruppur, Tamil Nadu", "latitude": 11.1085, "longitude": 77.3411},
@@ -113,23 +167,30 @@ def search_places(
     results: List[dict] = []
     seen_names = set()
 
-    # 1. First, check local corridor directory for exact and substring matches
+    # 1. Check local corridor directory: exact matches first, then prefix matches
+    exact_matches = []
+    prefix_matches = []
     for k, v in LOCAL_CORRIDOR_DIRECTORY.items():
-        if q_clean == k or q_clean in k or k in q_clean:
-            name = v["name"]
-            if name not in seen_names:
-                seen_names.add(name)
-                results.append({
-                    "place_id": f"loc_{k}",
-                    "display_name": name,
-                    "name": name.split(",")[0].strip(),
-                    "latitude": v["latitude"],
-                    "longitude": v["longitude"],
-                    "type": "city",
-                    "source": "local_corridor",
-                })
-            if len(results) >= limit:
-                return results
+        if q_clean == k:
+            exact_matches.append((k, v))
+        elif k.startswith(q_clean):
+            prefix_matches.append((k, v))
+
+    for k, v in exact_matches + prefix_matches:
+        name = v["name"]
+        if name not in seen_names:
+            seen_names.add(name)
+            results.append({
+                "place_id": f"loc_{k}",
+                "display_name": name,
+                "name": name.split(",")[0].strip(),
+                "latitude": v["latitude"],
+                "longitude": v["longitude"],
+                "type": "city",
+                "source": "local_corridor",
+            })
+        if q_clean == k and len(results) >= limit:
+            return results
 
     # 2. Query OpenStreetMap Nominatim for wider Indian addresses and landmarks
     url = f"{settings.OSM_NOMINATIM_BASE_URL}/search"
