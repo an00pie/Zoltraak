@@ -90,7 +90,6 @@ export default function MapView({
   focusCoordinate = null,
   onViewportChange = null,
   h3Resolution = null,
-  showCenterReticle = true,
   communityChargers = [],
   showCommunityChargers = true,
   setShowCommunityChargers = null,
@@ -767,35 +766,22 @@ export default function MapView({
         }
       });
 
-      // Individual Station Marker Click -> Popup & Drawer
+      // Station details are shown in the shared drawer, not a second map popup.
       map.on("click", "stations-circles", (e) => {
         if (!e.features || !e.features.length) return;
         const feature = e.features[0];
         const stationId = feature.properties.id;
-        const coordinates = feature.geometry.coordinates.slice();
 
         const matched =
           candidateStations.find((s) => s.id === stationId) ||
           stations.find((s) => s.id === stationId);
 
         if (matched) {
-          onSelectStation(matched);
-
           if (activePopupRef.current) {
             activePopupRef.current.remove();
+            activePopupRef.current = null;
           }
-
-          const popup = new maplibregl.Popup({
-            closeButton: true,
-            closeOnClick: false,
-            offset: 14,
-            maxWidth: "340px",
-          })
-            .setLngLat(coordinates)
-            .setHTML(getStationPopupHtml(matched))
-            .addTo(map);
-
-          activePopupRef.current = popup;
+          onSelectStation(matched);
         }
       });
 
@@ -824,36 +810,21 @@ export default function MapView({
         activePopupRef.current = popup;
       });
 
-      // Community Charger Marker Click -> Blue Popup & Select Station
+      // Community chargers use the same station details drawer as public chargers.
       map.on("click", "community-chargers-circle", (e) => {
         if (!e.features || !e.features.length) return;
         const props = e.features[0].properties;
-        const coordinates = e.features[0].geometry.coordinates.slice();
 
         const matched = communityChargers.find((c) => c.id === props.id) || {
           ...props,
           is_community_host: true,
         };
 
-        if (onSelectStation) {
-          onSelectStation(matched);
-        }
-
         if (activePopupRef.current) {
           activePopupRef.current.remove();
+          activePopupRef.current = null;
         }
-
-        const popup = new maplibregl.Popup({
-          closeButton: true,
-          closeOnClick: false,
-          offset: 14,
-          maxWidth: "340px",
-        })
-          .setLngLat(coordinates)
-          .setHTML(getCommunityChargerPopupHtml(props))
-          .addTo(map);
-
-        activePopupRef.current = popup;
+        if (onSelectStation) onSelectStation(matched);
       });
 
       // Pointer cursors
@@ -1198,30 +1169,6 @@ export default function MapView({
     <div className="relative w-full h-full">
       {/* MapLibre WebGL Canvas Container */}
       <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
-
-      {/* Viewport Center Crosshair Reticle (In Non-Routing Exploration Mode) */}
-      {showCenterReticle && !routeCoordinates && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-          <div className="relative flex flex-col items-center justify-center -translate-y-2">
-            {/* Center crosshair and pulse */}
-            <div className="relative flex items-center justify-center">
-              <div className="w-8 h-8 rounded-full border border-blue-500/30 bg-blue-500/5 animate-ping opacity-75" />
-              <div className="absolute w-6 h-6 rounded-full border border-blue-400/50" />
-              <div className="absolute w-2.5 h-2.5 rounded-full bg-blue-500 border border-white shadow-md" />
-              <div className="absolute -left-3 w-2 h-[1px] bg-blue-400/70" />
-              <div className="absolute -right-3 w-2 h-[1px] bg-blue-400/70" />
-              <div className="absolute -top-3 h-2 w-[1px] bg-blue-400/70" />
-              <div className="absolute -bottom-3 h-2 w-[1px] bg-blue-400/70" />
-            </div>
-
-            {/* Viewport center pill */}
-            <div className="mt-2 px-2 py-0.5 rounded-full bg-zinc-950/90 border border-zinc-800 text-[10px] text-zinc-300 font-mono shadow-md flex items-center gap-1.5 whitespace-nowrap">
-              <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-              <span>Viewport Center</span>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Uber H3 Dynamic Resolution HUD Badge */}
       {showH3Overlay && (

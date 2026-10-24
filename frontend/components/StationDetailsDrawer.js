@@ -98,19 +98,18 @@ export default function StationDetailsDrawer({
   const rating = reportsData?.average_rating || station.trust_score || 4.9;
 
   return (
-    <div className="fixed inset-0 w-full max-w-none bg-zinc-950 border-0 rounded-none shadow-2xl z-40 flex flex-col overflow-hidden animate-in slide-in-from-right duration-200 pointer-events-auto sm:absolute sm:inset-y-4 sm:right-4 sm:left-auto sm:w-full sm:max-w-md sm:border sm:rounded-2xl sm:z-30">
+    <div className="fixed inset-0 w-full max-w-none bg-zinc-950 border-0 rounded-none shadow-2xl z-40 flex flex-col overflow-hidden animate-in slide-in-from-right duration-200 pointer-events-auto sm:absolute sm:top-20 sm:bottom-20 sm:right-4 sm:left-auto sm:w-full sm:max-w-md sm:border sm:rounded-2xl sm:z-30">
       {/* Header */}
       <div className="px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-4 border-b border-zinc-800 flex items-start justify-between gap-3 bg-zinc-900/40 sm:p-4">
-        <div>
-          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-            {/* Community Blue Badge or Public Green Badge */}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2.5 mb-2">
             {isCommunity ? (
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-full text-[10px] leading-none font-bold bg-emerald-600/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 whitespace-nowrap">
                 <Home className="w-3 h-3" />
-                Homeowner Host (Blue Pin)
+                Community Home Charger
               </span>
             ) : (
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <span className="px-2.5 py-1 rounded-full text-[10px] leading-none font-bold bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 whitespace-nowrap">
                 <Zap className="w-3 h-3 fill-current" />
                 Public Fast Station
               </span>
@@ -118,7 +117,7 @@ export default function StationDetailsDrawer({
 
             {/* Operational Status */}
             <span
-              className={`px-2 py-0.5 rounded-full text-[10px] font-medium flex items-center gap-1 ${
+              className={`px-2.5 py-1 rounded-full text-[10px] leading-none font-medium flex items-center gap-1 whitespace-nowrap ${
                 isOperational
                   ? "bg-emerald-950/60 text-emerald-400 border border-emerald-800/60"
                   : "bg-rose-950/60 text-rose-400 border border-rose-800/60"
@@ -137,7 +136,7 @@ export default function StationDetailsDrawer({
             </span>
 
             {/* Star Rating */}
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-0.5">
+            <span className="px-2.5 py-1 rounded-full text-[10px] leading-none font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 whitespace-nowrap">
               <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
               {rating.toFixed(1)}
             </span>

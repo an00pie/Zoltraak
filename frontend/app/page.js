@@ -602,7 +602,6 @@ export default function Home() {
             focusCoordinate={focusCoordinate}
             onViewportChange={handleViewportChange}
             h3Resolution={h3Resolution}
-            showCenterReticle={!routeData}
             communityChargers={communityChargers}
             showCommunityChargers={showCommunityChargers}
             setShowCommunityChargers={setShowCommunityChargers}

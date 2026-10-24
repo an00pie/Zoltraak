@@ -37,9 +37,9 @@ export default function MapFloatingControls({
   const [showFilterMenu, setShowFilterMenu] = useState(false);
 
   const styles = [
-    { id: "dark", label: "Dark" },
-    { id: "osm", label: "OSM Street" },
-    { id: "light", label: "Light" },
+    { id: "dark", label: "Dark Matter", detail: "High contrast" },
+    { id: "osm", label: "OpenStreetMap", detail: "Street details" },
+    { id: "light", label: "OSM Positron", detail: "Light and minimal" },
   ];
 
   const filterModes = [
@@ -212,35 +212,56 @@ export default function MapFloatingControls({
       </button>
 
       {/* 8. Map Style Switcher Popover */}
-      <div className="relative hidden sm:block">
+      <div className="relative">
         <button
           type="button"
           onClick={() => setShowStyleMenu(!showStyleMenu)}
-          className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-white hover:bg-zinc-50 text-zinc-800 rounded-xl shadow-lg text-xs font-semibold border border-zinc-200 transition-all"
-          title="Switch Map Base Style"
+          aria-label="Choose map appearance"
+          aria-expanded={showStyleMenu}
+          className="w-10 h-10 sm:w-auto sm:h-auto flex items-center justify-center sm:justify-start space-x-1.5 px-2.5 py-1.5 bg-white/95 hover:bg-white text-zinc-800 rounded-full sm:rounded-xl shadow-lg text-xs font-semibold border border-zinc-200 transition-all backdrop-blur-md"
+          title="Choose map appearance"
         >
-          <MapIcon className="w-3.5 h-3.5 text-zinc-500" />
-          <span className="capitalize">{currentStyle}</span>
+          <MapIcon className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-zinc-600" />
+          <span className="hidden sm:inline">Map</span>
         </button>
 
         {showStyleMenu && (
-          <div className="absolute right-0 top-full mt-1.5 w-28 bg-white rounded-xl shadow-2xl border border-zinc-200 overflow-hidden text-xs py-1 z-40">
-            {styles.map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => {
-                  onChangeStyle(s.id);
-                  setShowStyleMenu(false);
-                }}
-                className={`w-full px-3 py-1.5 text-left flex items-center justify-between hover:bg-zinc-100 ${
-                  currentStyle === s.id ? "font-bold text-emerald-700 bg-emerald-50" : "text-zinc-700"
-                }`}
-              >
-                <span>{s.label}</span>
-                {currentStyle === s.id && <Check className="w-3 h-3 text-emerald-600" />}
-              </button>
-            ))}
+          <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-zinc-200 bg-white/95 p-2 shadow-2xl backdrop-blur-xl z-40">
+            <div className="px-2 pb-2">
+              <p className="text-xs font-bold text-zinc-900">Map appearance</p>
+              <p className="mt-0.5 text-[10px] text-zinc-500">Choose how the map is displayed</p>
+            </div>
+            <div className="space-y-1">
+              {styles.map((style) => (
+                <button
+                  key={style.id}
+                  type="button"
+                  aria-pressed={currentStyle === style.id}
+                  onClick={() => {
+                    onChangeStyle(style.id);
+                    setShowStyleMenu(false);
+                  }}
+                  className={`w-full min-h-12 rounded-xl px-2.5 text-left flex items-center gap-2.5 transition-colors ${
+                    currentStyle === style.id
+                      ? "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200"
+                      : "text-zinc-700 hover:bg-zinc-100"
+                  }`}
+                >
+                  <span className={`w-9 h-9 rounded-lg border border-black/10 shrink-0 ${
+                    style.id === "dark"
+                      ? "bg-[linear-gradient(135deg,#27272a_0_35%,#52525b_35%_42%,#18181b_42%_68%,#3f3f46_68%)]"
+                      : style.id === "osm"
+                      ? "bg-[linear-gradient(135deg,#e7e5e4_0_32%,#fff_32%_43%,#86efac_43%_52%,#f5f5f4_52%_100%)]"
+                      : "bg-[linear-gradient(135deg,#f4f4f5_0_35%,#fff_35%_46%,#d4d4d8_46%_51%,#fafafa_51%)]"
+                  }`} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-xs font-semibold">{style.label}</span>
+                    <span className="block text-[10px] text-zinc-500">{style.detail}</span>
+                  </span>
+                  {currentStyle === style.id && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
